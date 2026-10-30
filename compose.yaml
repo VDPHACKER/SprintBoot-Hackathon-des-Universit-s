@@ -12,6 +12,7 @@ services:
     environment:
       SERVER_NAME: ${SERVER_NAME:-chat.localhost}
       CHAT_PORT: ${CHAT_PORT:-8080}
+      DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
     volumes:
       - ./scripts:/scripts:ro
       - ./deploy/synapse:/templates:ro
@@ -114,6 +115,7 @@ services:
       SYNAPSE_URL: http://synapse:8008
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_ISSUER: http://auth.localhost:8081/realms/bf
+      DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
       SECRETS_DIR: /secrets
     volumes:
       - ./data/secrets:/secrets:ro

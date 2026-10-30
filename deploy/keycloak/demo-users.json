@@ -1,0 +1,6 @@
+[
+  { "username": "admin.demo", "password": "Demo-Burkina-2026!", "totpSecret": "BurkinaDemoTotp20260" },
+  { "username": "issa.kabore", "password": "Demo-Burkina-2026!", "totpSecret": "BurkinaDemoTotp20260" },
+  { "username": "awa.ouedraogo", "password": "Demo-Burkina-2026!", "totpSecret": "BurkinaDemoTotp20260" },
+  { "username": "moussa.sawadogo", "password": "Demo-Burkina-2026!", "totpSecret": "BurkinaDemoTotp20260" }
+]

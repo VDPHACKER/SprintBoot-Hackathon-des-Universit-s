@@ -17,6 +17,7 @@ for name in postgres_password keycloak_db_password keycloak_admin_password regis
   fi
 done
 
+export DEMO_ACCOUNTS="${DEMO_ACCOUNTS:-true}"
 export POSTGRES_PASSWORD REGISTRATION_SHARED_SECRET MACAROON_SECRET_KEY FORM_SECRET SYNAPSE_OIDC_SECRET AUTOMATION_SECRET AUTOMATION_AGENT_SECRET
 POSTGRES_PASSWORD=$(cat "$SECRETS/postgres_password")
 REGISTRATION_SHARED_SECRET=$(cat "$SECRETS/registration_shared_secret")
@@ -43,6 +44,24 @@ realm = Template(open("/kc-templates/realm-bf.json.tmpl", encoding="utf-8").read
 realm = json.loads(realm)
 profile = json.load(open("/kc-templates/user-profile.json", encoding="utf-8"))
 realm["components"]["org.keycloak.userprofile.UserProfileProvider"][0]["config"]["kc.user.profile.config"] = [json.dumps(profile)]
+# Comptes de démonstration (fictifs): identifiants importés avec le realm. Désactivables à l'installation
+# avec DEMO_ACCOUNTS=false (sans effet sur un realm déjà importé).
+if os.environ.get("DEMO_ACCOUNTS", "true").lower() == "true":
+    for u in json.load(open("/kc-templates/demo-users.json", encoding="utf-8")):
+        realm["users"].append({
+            "username": u["username"],
+            "enabled": True,
+            "credentials": [
+                {"type": "password", "value": u["password"], "temporary": False},
+                {
+                    "type": "otp",
+                    "userLabel": "Compte de démonstration",
+                    "secretData": json.dumps({"value": u["totpSecret"]}),
+                    "credentialData": json.dumps({"subType": "totp", "digits": 6, "period": 30, "algorithm": "HmacSHA1", "counter": 0}),
+                },
+            ],
+        })
+
 fd = os.open("/kc-import/realm-bf.json", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
 with os.fdopen(fd, "w", encoding="utf-8") as f:
     json.dump(realm, f, ensure_ascii=False, indent=2)

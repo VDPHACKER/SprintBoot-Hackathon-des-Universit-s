@@ -1,6 +1,6 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { BASE, KC_DIRECT, REALM_ISSUER, bearer, clientToken } from './e2e-helpers.ts'
+import { BASE, KC_DIRECT, KcBrowser, REALM_ISSUER, bearer, clientToken } from './e2e-helpers.ts'
 
 const agent = (username: string) => ({
   username,
@@ -81,44 +81,10 @@ describe('SÉCURITÉ: identité Keycloak', () => {
     })
     await fetch(`${KC_DIRECT}/admin/realms/bf/users/${id}`, { method: 'PUT', headers: admin, body: JSON.stringify({ requiredActions: [] }) })
 
-    // Connexion navigateur simulée: formulaire identifiant/mot de passe.
-    const jar = new Map<string, string>()
-    const remember = (res: Response) => res.headers.getSetCookie().forEach((c) => jar.set(c.split('=')[0], c.split(';')[0]))
-    const cookies = () => [...jar.values()].join('; ')
-    const toDirect = (u: string) => u.replace('http://auth.localhost:8081', KC_DIRECT)
-    const challenge = createHash('sha256').update(randomBytes(32)).digest('base64url')
-
-    const page = await fetch(
-      `${KC_DIRECT}/realms/bf/protocol/openid-connect/auth?` +
-        new URLSearchParams({
-          client_id: 'messagerie-web',
-          response_type: 'code',
-          scope: 'openid',
-          redirect_uri: 'http://localhost:8080/',
-          code_challenge: challenge,
-          code_challenge_method: 'S256',
-        }),
-    )
-    remember(page)
-    const html = await page.text()
-    const action = /action="([^"]+)"/.exec(html)?.[1].replaceAll('&amp;', '&')
-    expect(action, 'formulaire de connexion introuvable').toBeTruthy()
-
-    const after = await fetch(toDirect(action!), {
-      method: 'POST',
-      redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: cookies() },
-      body: new URLSearchParams({ username, password }),
-    })
-    // On suit les redirections: à aucun moment le client ne doit recevoir de code d'autorisation avec le seul mot de passe.
-    let res = after
-    for (let i = 0; i < 5 && [301, 302, 303].includes(res.status); i++) {
-      const location = res.headers.get('location') ?? ''
-      expect(location).not.toMatch(/^http:\/\/localhost:8080\/\?.*code=/)
-      remember(res)
-      res = await fetch(toDirect(location), { redirect: 'manual', headers: { cookie: cookies() } })
-    }
+    // Connexion navigateur simulée: formulaire identifiant/mot de passe, puis on suit les redirections.
+    // À aucun moment le client ne doit recevoir de code d'autorisation avec le seul mot de passe.
+    const { res, html } = await new KcBrowser().login(username, password)
+    expect(res.headers.get('location') ?? '').not.toMatch(/^http:\/\/localhost:8080\/\?.*code=/)
     expect(res.status).toBe(200)
-    expect(await res.text()).toMatch(/name="totp"/)
-  })
+    expect(html).toMatch(/name="totp"/)  })
 })

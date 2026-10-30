@@ -5,6 +5,8 @@ import { AgentError, enroll, revoke, type AgentInput, type Deps } from './agents
 
 export interface ServerDeps extends Deps {
   adminGuard: Guard
+  /** Faux tant que le démarrage n'est pas terminé (comptes de démonstration); sert au contrôle de santé. */
+  isReady?: () => boolean
 }
 
 export function buildServer(deps: ServerDeps): FastifyInstance {
@@ -26,7 +28,10 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     return reply.code(500).send({ error: 'INTERNAL' })
   })
 
-  server.get('/health', async () => ({ status: 'ok' }))
+  server.get('/health', async (_req, reply) => {
+    const ready = deps.isReady?.() ?? true
+    return reply.code(ready ? 200 : 503).send({ status: ready ? 'ok' : 'starting' })
+  })
 
   server.register(async (admin) => {
     admin.addHook('preHandler', deps.adminGuard)
