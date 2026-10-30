@@ -37,6 +37,9 @@ h2 { font-size: 1rem; margin: 1rem 0 .25rem; }
 .level { padding: .05rem .5rem; border-radius: 999px; border: 1px solid; font-weight: 600; }
 .level-restreinte { color: #8a5a00; } .level-confidentiel { color: var(--warn); }
 @media (prefers-color-scheme: dark) { .level-restreinte { color: #ffc861; } }
+.timeline li.confidential { position: relative; overflow: hidden; }
+.timeline li.confidential::after { content: attr(data-watermark); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 700; font-size: 1.3rem; letter-spacing: .08em; text-transform: uppercase; opacity: .09; transform: rotate(-12deg); pointer-events: none; overflow-wrap: anywhere; }
+.timeline li.blurred > * { filter: blur(9px); user-select: none; }
 .lock { color: var(--muted); } .ok { color: var(--accent); }
 .hint { color: var(--muted); font-size: .85rem; margin: 0; }
 .body button.file { background: transparent; color: var(--fg); border-color: var(--line); text-align: left; overflow-wrap: anywhere; }

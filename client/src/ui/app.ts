@@ -1,8 +1,10 @@
 import { ClientEvent, MatrixEventEvent, RoomEvent, type MatrixClient, type MatrixEvent, type Room } from 'matrix-js-sdk'
 import { LEVELS, forwardMessage, policyFor, readClassification, sendClassified, type Level } from '../lib/classification.ts'
+import { scheduleExpiry, visibleEvents } from '../lib/expiry.ts'
 import { downloadFile, sendFile } from '../matrix/files.ts'
 import { createEncryptedRoom, sendText } from '../matrix/rooms.ts'
 import { logout, ssoLoginUrl, startSession } from '../matrix/session.ts'
+import { shouldBlur, watchVisibility, type Visibility } from './privacyShield.ts'
 import { S } from './strings.ts'
 
 /** Crée un élément; tout texte passe par textContent, jamais par innerHTML (pas d'injection possible). */
@@ -21,6 +23,9 @@ function h<K extends keyof HTMLElementTagNameMap>(
   return el
 }
 
+const formatDate = (ms: number) => new Intl.DateTimeFormat('fr', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(ms))
+/** Délai maximal accepté par setTimeout (~24,8 jours). */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
 const formatSize = (n: number) => (n < 1024 ? `${n} o` : n < 1048576 ? `${(n / 1024).toFixed(1)} Ko` : `${(n / 1048576).toFixed(1)} Mo`)
 
 /** Propose le fichier déchiffré au téléchargement sous son nom d'origine. */
@@ -76,6 +81,15 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   client.on(RoomEvent.MyMembership, refresh)
   client.on(MatrixEventEvent.Decrypted, refresh)
 
+  // Flou des messages confidentiels dès que la fenêtre perd le focus ou que l'onglet passe en arrière-plan.
+  let shield: Visibility = { windowFocused: true, tabVisible: true }
+  watchVisibility((state) => {
+    shield = state
+    refresh()
+  })
+  // Messages dont la suppression est déjà planifiée (seul l'expéditeur supprime; les autres clients masquent).
+  const redactionScheduled = new Set<string>()
+  let expiryTimer: ReturnType<typeof setTimeout> | undefined
   // Éléments persistants: les champs de saisie ne sont JAMAIS reconstruits, sinon un message en cours de frappe
   // disparaîtrait à chaque événement de synchronisation.
   const lists = h('div')
@@ -130,6 +144,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     if (classification.level !== 'normal') {
       meta.append(h('span', { class: `level level-${classification.level}` }, S.levels[classification.level]))
     }
+    if (classification.expiresAt !== null) meta.append(h('span', { class: 'lock' }, S.expiresAt(formatDate(classification.expiresAt))))
     if (classification.noForward) {
       meta.append(h('span', { class: 'lock' }, S.noForward))
     } else {
@@ -153,13 +168,36 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   const fillTimeline = (room: Room, forceBottom: boolean) => {
     // On ne ramène en bas que si l'agent y était déjà: il peut relire l'historique sans être renvoyé en bas.
     const atBottom = timelineList.scrollHeight - timelineList.scrollTop - timelineList.clientHeight < 40
+    const now = Date.now()
+    const all = room.getLiveTimeline().getEvents()
+
+    // Mes propres messages expirants: je planifie leur suppression pour tous (une fois par message).
+    for (const event of all) {
+      const id = event.getId()
+      if (id && event.getType() === 'm.room.message' && !redactionScheduled.has(id)) {
+        redactionScheduled.add(id)
+        scheduleExpiry(client, event)
+      }
+    }
+
+    const me = client.getUserId() ?? ''
+    const watermark = room.getMember(me)?.name ?? me
     const items: HTMLElement[] = []
-    for (const event of room.getLiveTimeline().getEvents()) {
+    let nextDeadline: number | undefined
+    for (const event of visibleEvents(all, now)) {
       const type = event.getType()
       if (type !== 'm.room.message' && type !== 'm.room.encrypted') continue
+      const classification = readClassification(event.getContent())
+      if (classification.expiresAt !== null && (nextDeadline === undefined || classification.expiresAt < nextDeadline)) {
+        nextDeadline = classification.expiresAt
+      }
+      const blurred = shouldBlur(classification.level, shield)
+      const classes = [event.getSender() === client.getUserId() ? 'mine' : 'theirs']
+      if (classification.level === 'confidentiel') classes.push('confidential')
+      if (blurred) classes.push('blurred')
       const meta = eventMeta(event, room)
       items.push(
-        h('li', { class: event.getSender() === client.getUserId() ? 'mine' : 'theirs' },
+        h('li', { class: classes.join(' '), 'data-watermark': watermark, ...(blurred ? { 'aria-hidden': 'true' } : {}) },
           h('span', { class: 'sender' }, room.getMember(event.getSender() ?? '')?.name ?? event.getSender() ?? ''),
           eventNode(event),
           ...(meta ? [meta] : []),
@@ -168,8 +206,11 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     }
     timelineList.replaceChildren(...items)
     if (forceBottom || atBottom) timelineList.scrollTop = timelineList.scrollHeight
-  }
 
+    // Un seul minuteur, réglé sur la prochaine échéance: le message disparaît à l'heure, sans redessiner chaque seconde.
+    clearTimeout(expiryTimer)
+    if (nextDeadline !== undefined) expiryTimer = setTimeout(refresh, Math.min(Math.max(nextDeadline - now, 0) + 50, MAX_TIMEOUT_MS))
+  }
   function composerFor(roomId: string): HTMLElement {
     const cached = composers.get(roomId)
     if (cached) return cached

@@ -21,6 +21,7 @@ export const S = {
   level: 'Niveau de classification',
   levels: { normal: 'Normal', restreinte: 'Diffusion restreinte', confidentiel: 'Confidentiel' } as Record<Level, string>,
   noForward: 'Transfert interdit.',
+  expiresAt: (when: string) => `Expire le ${when}.`,
   expiresIn: (hours: number) => `Expire dans ${hours} h.`,
   forwardTo: 'Transférer vers…',
   forwarded: 'Message transféré.',
