@@ -1,9 +1,10 @@
 import Fastify, { type FastifyInstance } from 'fastify'
-import { adminTokenGuard } from './auth.ts'
+import { randomBytes } from 'node:crypto'
+import type { Guard } from './auth.ts'
 import { AgentError, enroll, revoke, type AgentInput, type Deps } from './agents.ts'
 
 export interface ServerDeps extends Deps {
-  adminToken: string
+  adminGuard: Guard
 }
 
 export function buildServer(deps: ServerDeps): FastifyInstance {
@@ -28,11 +29,14 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   server.get('/health', async () => ({ status: 'ok' }))
 
   server.register(async (admin) => {
-    admin.addHook('preHandler', adminTokenGuard(deps.adminToken))
+    admin.addHook('preHandler', deps.adminGuard)
 
     admin.post('/agents', async (req, reply) => {
-      const agent = await enroll(deps, req.body as AgentInput)
-      return reply.code(201).send(agent)
+      const body = (req.body ?? {}) as AgentInput
+      // Mot de passe temporaire: fourni par l'administrateur, sinon généré. Renvoyé une seule fois, jamais stocké ici.
+      const initialPassword = body.initialPassword ?? randomBytes(12).toString('base64url')
+      const agent = await enroll(deps, { ...body, initialPassword })
+      return reply.code(201).send({ ...agent, initialPassword })
     })
 
     admin.get('/agents', async () => deps.identity.listUsers())

@@ -1,6 +1,10 @@
-# Surcharge réservée aux tests : publie Synapse sur la boucle locale pour créer des comptes jetables.
-# Ne jamais utiliser en production : la configuration normale n'expose pas l'API d'administration.
+# Surcharge réservée aux tests : publie Synapse et Keycloak sur la boucle locale (comptes jetables, API d'administration).
+# Ne jamais utiliser en production : la configuration normale n'expose ni l'API d'administration de Synapse
+# ni la console d'administration de Keycloak.
 services:
   synapse:
     ports:
       - "127.0.0.1:8008:8008"
+  keycloak:
+    ports:
+      - "127.0.0.1:8180:8080"

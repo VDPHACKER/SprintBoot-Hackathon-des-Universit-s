@@ -13,7 +13,8 @@
     "test:e2e": "vitest run e2e"
   },
   "dependencies": {
-    "fastify": "5.12.7"
+    "fastify": "5.12.7",
+    "jose": "6.2.14"
   },
   "devDependencies": {
     "@types/node": "26.6.6",

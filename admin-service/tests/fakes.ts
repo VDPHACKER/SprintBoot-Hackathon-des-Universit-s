@@ -1,20 +1,24 @@
-import type { AgentInput, SynapseAdmin } from '../src/agents.ts'
-import { InMemoryIdentity } from '../src/identity-memory.ts'
+import type { Agent, AgentInput, IdentityProvider, SynapseAdmin } from '../src/agents.ts'
 
 /** Identité en mémoire; `log` enregistre l'ordre des appels. */
-export class FakeIdentity extends InMemoryIdentity {
+export class FakeIdentity implements IdentityProvider {
+  users = new Map<string, Agent>()
   log: string[]
   constructor(log: string[]) {
-    super()
     this.log = log
   }
-  override async createUser(a: AgentInput): Promise<void> {
+  async createUser(a: AgentInput): Promise<void> {
     this.log.push(`identity.createUser:${a.username}`)
-    return super.createUser(a)
+    const { initialPassword: _omit, ...agent } = a
+    this.users.set(a.username, { ...agent, status: 'active' })
   }
-  override async disableUser(username: string): Promise<void> {
+  async disableUser(username: string): Promise<void> {
     this.log.push(`identity.disableUser:${username}`)
-    return super.disableUser(username)
+    const u = this.users.get(username)
+    if (u) u.status = 'revoked'
+  }
+  async listUsers(): Promise<Agent[]> {
+    return [...this.users.values()]
   }
 }
 

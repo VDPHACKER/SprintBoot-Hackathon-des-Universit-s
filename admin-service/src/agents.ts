@@ -7,8 +7,10 @@ export interface AgentInput {
   ministry: string
   fonction: string
   role: Role
+  /** Mot de passe temporaire (changement obligatoire à la première connexion). */
+  initialPassword?: string
 }
-export interface Agent extends AgentInput {
+export interface Agent extends Omit<AgentInput, 'initialPassword'> {
   status: 'active' | 'revoked'
 }
 export interface RevocationReport {
@@ -60,10 +62,14 @@ export async function enroll(deps: Deps, input: AgentInput): Promise<Agent> {
   assertText(input.displayName)
   assertText(input.ministry)
   assertText(input.fonction)
+  if (input.initialPassword !== undefined && (typeof input.initialPassword !== 'string' || input.initialPassword.length < 8)) {
+    throw new AgentError('INVALID_FIELD')
+  }
 
   await deps.identity.createUser(input)
   await deps.synapse.upsertUser(mxid(deps.domain, input.username), input.displayName)
-  return { ...input, status: 'active' }
+  const { initialPassword: _omit, ...agent } = input
+  return { ...agent, status: 'active' }
 }
 
 /**

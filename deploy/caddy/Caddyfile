@@ -3,8 +3,9 @@
 	admin off
 }
 
+# Messagerie: API Matrix, API d'administration de la messagerie.
 :8080 {
-	# Jamais exposés : API d'administration et fédération.
+	# Jamais exposés : API d'administration de Synapse et fédération.
 	@blocked path /_synapse/admin/* /_matrix/federation/* /_matrix/key/*
 	handle @blocked {
 		respond "Not found" 404
@@ -21,5 +22,17 @@
 
 	handle {
 		respond "Not found" 404
+	}
+}
+
+# Identité (Keycloak). La console d'administration et l'API d'administration ne sont pas exposées.
+:8081 {
+	@private path /admin/* /realms/master/* /metrics* /health*
+	handle @private {
+		respond "Not found" 404
+	}
+
+	handle {
+		reverse_proxy keycloak:8080
 	}
 }

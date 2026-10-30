@@ -1,15 +1,12 @@
 import { randomBytes } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
-
-const ROOT = resolve(import.meta.dirname, '../..')
-const secret = (n: string) => readFileSync(resolve(ROOT, 'data/secrets', n), 'utf8').trim()
-const BASE = 'http://localhost:8080'
-const SYNAPSE = 'http://127.0.0.1:8008'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { BASE, SYNAPSE, bearer, clientToken, secret } from './e2e-helpers.ts'
 
 describe('SÉCURITÉ: API d\'administration derrière Caddy', () => {
-  const adminHeaders = { authorization: `Bearer ${secret('admin_api_token')}`, 'content-type': 'application/json' }
+  let adminHeaders: Record<string, string>
+  beforeAll(async () => {
+    adminHeaders = bearer(await clientToken('automation'))
+  })
   const synapseUser = async (mxid: string) =>
     (await fetch(`${SYNAPSE}/_synapse/admin/v2/users/${encodeURIComponent(mxid)}`, {
       headers: { authorization: `Bearer ${secret('svc-admin.token')}` },

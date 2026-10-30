@@ -1,0 +1,150 @@
+{
+  "realm": "bf",
+  "enabled": true,
+  "displayName": "Messagerie souveraine",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": true,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "accessTokenLifespan": 300,
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyLookAheadWindow": 1,
+  "browserFlow": "browser-totp-obligatoire",
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Administration de la messagerie (enrôlement, révocation)" },
+      { "name": "chef_de_service", "description": "Émet des instructions de service" },
+      { "name": "agent", "description": "Agent enrôlé" }
+    ]
+  },
+  "authenticationFlows": [
+    {
+      "alias": "browser-totp-obligatoire",
+      "description": "Connexion navigateur: mot de passe PUIS second facteur TOTP, toujours.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "auth-cookie", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 10, "userSetupAllowed": false },
+        { "authenticatorFlow": true, "requirement": "ALTERNATIVE", "priority": 20, "flowAlias": "browser-totp-obligatoire forms", "userSetupAllowed": false }
+      ]
+    },
+    {
+      "alias": "browser-totp-obligatoire forms",
+      "description": "Mot de passe puis TOTP, tous deux requis.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "auth-username-password-form", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false },
+        { "authenticator": "auth-otp-form", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 20, "userSetupAllowed": false }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "synapse",
+      "name": "Synapse (serveur de messagerie)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${SYNAPSE_OIDC_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:8080/_synapse/client/oidc/callback"],
+      "webOrigins": [],
+      "attributes": { "pkce.code.challenge.method": "S256" },
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic", "email"],
+      "optionalClientScopes": [],
+      "protocolMappers": [
+        {
+          "name": "display_name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "displayName",
+            "claim.name": "display_name",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "messagerie-web",
+      "name": "Client web de la messagerie",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:8080/*"],
+      "webOrigins": ["http://localhost:8080"],
+      "attributes": { "pkce.code.challenge.method": "S256" },
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic"],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "automation",
+      "name": "Compte technique: administration (service d'administration, seed, tests)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${AUTOMATION_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": ["roles", "basic"],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "automation-agent",
+      "name": "Compte technique: simple agent (tests de refus d'accès)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${AUTOMATION_AGENT_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": ["roles", "basic"],
+      "optionalClientScopes": []
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-automation",
+      "enabled": true,
+      "serviceAccountClientId": "automation",
+      "realmRoles": ["admin"],
+      "clientRoles": { "realm-management": ["manage-users", "view-users", "query-users", "view-realm"] }
+    },
+    {
+      "username": "service-account-automation-agent",
+      "enabled": true,
+      "serviceAccountClientId": "automation-agent",
+      "realmRoles": ["agent"]
+    }
+  ],
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      { "providerId": "declarative-user-profile", "subComponents": {}, "config": { "kc.user.profile.config": ["__USER_PROFILE__"] } }
+    ]
+  }
+}

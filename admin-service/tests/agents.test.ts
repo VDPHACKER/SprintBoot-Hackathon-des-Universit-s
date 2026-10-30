@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { enroll, revoke, type AgentInput } from '../src/agents.ts'
+import { roleGuard, type TokenVerifier } from '../src/auth.ts'
 import { buildServer } from '../src/server.ts'
 import { FakeIdentity, FakeSynapse } from './fakes.ts'
 
@@ -35,6 +36,7 @@ describe('enroll', () => {
     await expect(enroll(d, { ...awa, displayName: '  ' })).rejects.toThrow('INVALID_FIELD')
     await expect(enroll(d, { ...awa, ministry: 42 as never })).rejects.toThrow('INVALID_FIELD')
     await expect(enroll(d, null as never)).rejects.toThrow('INVALID_USERNAME')
+    await expect(enroll(d, { ...awa, initialPassword: 'court' })).rejects.toThrow('INVALID_FIELD')
     expect(d.log).toEqual([])
   })
 
@@ -75,18 +77,21 @@ describe('revoke', () => {
 })
 
 describe('endpoints', () => {
-  const TOKEN = 'jeton-de-test-0123456789'
-  const server = () => buildServer({ ...makeDeps(), adminToken: TOKEN })
+  const TOKEN = 'jwt-admin'
+  const verify: TokenVerifier = async (t) => {
+    if (t === TOKEN) return { roles: ['admin'] }
+    if (t === 'jwt-agent') return { roles: ['agent'] }
+    throw new Error('invalide')
+  }
+  const server = () => buildServer({ ...makeDeps(), adminGuard: roleGuard(verify, 'admin') })
 
-  it('endpointsRequireAdminToken', async () => {
+  it('endpointsRequireAdminRole', async () => {
     const s = server()
-    expect((await s.inject({ method: 'GET', url: '/agents' })).statusCode).toBe(401)
-    expect(
-      (await s.inject({ method: 'GET', url: '/agents', headers: { authorization: 'Bearer mauvais' } })).statusCode,
-    ).toBe(403)
-    expect(
-      (await s.inject({ method: 'GET', url: '/agents', headers: { authorization: `Bearer ${TOKEN}` } })).statusCode,
-    ).toBe(200)
+    const get = (h?: Record<string, string>) => s.inject({ method: 'GET', url: '/agents', headers: h })
+    expect((await get()).statusCode).toBe(401)
+    expect((await get({ authorization: 'Bearer mauvais' })).statusCode).toBe(401)
+    expect((await get({ authorization: 'Bearer jwt-agent' })).statusCode).toBe(403)
+    expect((await get({ authorization: `Bearer ${TOKEN}` })).statusCode).toBe(200)
   })
 
   it('healthNeedsNoToken', async () => {
@@ -101,6 +106,15 @@ describe('endpoints', () => {
     const bad = await s.inject({ method: 'POST', url: '/agents', headers, payload: { ...awa, role: 'ministre' } })
     expect(bad.statusCode).toBe(400)
     expect(bad.json()).toEqual({ error: 'INVALID_ROLE' })
+  })
+
+  it('postAgentsReturnsInitialPasswordOnceAndNeverListsIt', async () => {
+    const s = server()
+    const headers = { authorization: `Bearer ${TOKEN}` }
+    const created = await s.inject({ method: 'POST', url: '/agents', headers, payload: awa })
+    expect(created.json().initialPassword).toMatch(/^.{12,}$/)
+    const listed = await s.inject({ method: 'GET', url: '/agents', headers })
+    expect(JSON.stringify(listed.json())).not.toContain('initialPassword')
   })
 
   it('directoryListsOnlyActiveAgentsOfMinistryWithoutRole', async () => {

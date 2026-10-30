@@ -10,3 +10,6 @@ Chaque technologie utilisée est citée ici avec sa licence, la version épingl�
 | Node.js | 24 | MIT | https://nodejs.org |
 | Vitest (outil de test) | 5.0.5 | MIT | https://github.com/vitest-dev/vitest |
 | TypeScript (outil) | 7.0.2 | Apache-2.0 | https://github.com/microsoft/TypeScript |
+| Keycloak | 26.8.1 | Apache-2.0 | https://github.com/keycloak/keycloak |
+| Fastify | 5.12.7 | MIT | https://github.com/fastify/fastify |
+| jose | 6.2.14 | MIT | https://github.com/panva/jose |

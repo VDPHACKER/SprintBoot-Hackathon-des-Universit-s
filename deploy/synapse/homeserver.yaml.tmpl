@@ -38,6 +38,25 @@ allow_guest_access: false
 password_config:
   enabled: false
 
+# Identité: connexion uniquement par Keycloak (mot de passe + TOTP). Le jeton de connexion revient au client web.
+sso:
+  client_whitelist:
+    - "http://localhost:${CHAT_PORT}/"
+oidc_providers:
+  - idp_id: keycloak
+    idp_name: "Identité de l'administration"
+    # Démo locale en HTTP: Synapse exige un émetteur HTTPS. En production (TLS devant Keycloak), RETIRER cette ligne.
+    skip_verification: true
+    issuer: "http://auth.localhost:8081/realms/bf"
+    client_id: synapse
+    client_secret: "${SYNAPSE_OIDC_SECRET}"
+    scopes: ["openid", "profile"]
+    allow_existing_users: true
+    user_mapping_provider:
+      config:
+        localpart_template: "{{ user.preferred_username }}"
+        display_name_template: "{{ user.display_name }}"
+
 # Tous les salons sont chiffrés de bout en bout dès leur création.
 encryption_enabled_by_default_for_room_type: all
 
