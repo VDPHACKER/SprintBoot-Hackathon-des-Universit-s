@@ -1,0 +1,27 @@
+/** Libellés de l'interface. Centralisés ici pour être branchés sur l'internationalisation (tâche 12). */
+export const S = {
+  appTitle: 'Messagerie souveraine',
+  loginIntro: 'Réservé aux agents enrôlés. La connexion demande votre mot de passe puis un code à usage unique.',
+  login: 'Se connecter',
+  logout: 'Se déconnecter',
+  newRoom: 'Nouveau salon',
+  roomName: 'Nom du salon',
+  invitees: 'Agents à inviter (séparés par des virgules)',
+  create: 'Créer',
+  invitations: 'Invitations',
+  join: 'Rejoindre',
+  rooms: 'Salons',
+  noRoom: 'Choisissez ou créez un salon.',
+  messageLabel: 'Votre message',
+  send: 'Envoyer',
+  encrypted: 'Chiffré de bout en bout',
+  notEncrypted: 'ATTENTION: ce salon n’est pas chiffré',
+  decrypting: 'Déchiffrement en cours…',
+  undecryptable: 'Message illisible (clé non reçue)',
+  starting: 'Connexion en cours…',
+  errors: {
+    INVALID_USER: 'Identifiant d’agent invalide.',
+    EMPTY_ROOM_NAME: 'Le nom du salon est obligatoire.',
+    generic: 'Une erreur est survenue. Réessayez.',
+  } as Record<string, string>,
+}

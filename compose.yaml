@@ -127,7 +127,10 @@ services:
 
   # Point d'entrée public. Il porte l'alias auth.localhost pour que Synapse atteigne Keycloak par la même URL que le navigateur.
   caddy:
-    image: caddy:2.11.7-alpine
+    build:
+      context: .
+      dockerfile: deploy/caddy/Dockerfile
+    image: messagerie-souveraine-caddy:local
     restart: unless-stopped
     depends_on:
       keycloak: { condition: service_healthy }

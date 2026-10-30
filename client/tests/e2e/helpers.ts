@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { ClientEvent, createClient, type MatrixClient, type MatrixEvent } from 'matrix-js-sdk'
 import { createHmac, randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -64,4 +65,39 @@ export async function api(path: string, token: string, init: RequestInit = {}): 
     ...init,
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...(init.headers ?? {}) },
   })
+}
+/** Client Matrix complet (chiffrement Rust en mémoire) pour un compte jetable, synchronisé avec le serveur. */
+export async function startTestClient(agent: TestAgent): Promise<MatrixClient> {
+  const client = createClient({
+    baseUrl: BASE,
+    accessToken: agent.accessToken,
+    userId: agent.userId,
+    deviceId: agent.deviceId,
+  })
+  await client.initRustCrypto({ useIndexedDB: false })
+  await client.startClient({ initialSyncLimit: 10 })
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('synchronisation trop longue')), 30_000)
+    client.on(ClientEvent.Sync, (state) => {
+      if (state === 'PREPARED' || state === 'SYNCING') {
+        clearTimeout(timer)
+        resolve()
+      }
+    })
+  })
+  return client
+}
+
+/** Attend un message texte déchiffré portant exactement ce corps dans le salon. */
+export async function waitForMessage(client: MatrixClient, roomId: string, body: string, timeoutMs = 30_000): Promise<MatrixEvent> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const room = client.getRoom(roomId)
+    for (const event of room?.getLiveTimeline().getEvents() ?? []) {
+      await client.decryptEventIfNeeded(event)
+      if (event.getType() === 'm.room.message' && event.getContent().body === body) return event
+    }
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  throw new Error(`message attendu non reçu dans ${roomId}: ${body}`)
 }

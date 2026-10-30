@@ -20,8 +20,19 @@
 		reverse_proxy admin:3000
 	}
 
+	# Client web (application monopage). Politique CSP stricte: la session vit dans le navigateur,
+	# aucun script ni style externe n'est autorisé; 'wasm-unsafe-eval' est requis par le chiffrement (WebAssembly).
 	handle {
-		respond "Not found" 404
+		header {
+			Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+			X-Content-Type-Options nosniff
+			Referrer-Policy no-referrer
+			X-Frame-Options DENY
+			Cache-Control "no-cache"
+		}
+		root * /srv/client
+		try_files {path} /index.html
+		file_server
 	}
 }
 
