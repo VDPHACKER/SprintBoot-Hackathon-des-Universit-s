@@ -60,12 +60,32 @@ services:
       - ./scripts:/scripts:ro
       - ./data/secrets:/secrets
 
+  # Service d'administration: enrôlement, révocation, annuaire. Joint Synapse par le réseau interne.
+  admin:
+    build: ./admin-service
+    restart: unless-stopped
+    depends_on:
+      synapse: { condition: service_healthy }
+      bootstrap: { condition: service_completed_successfully }
+    environment:
+      SERVER_NAME: ${SERVER_NAME:-chat.localhost}
+      SYNAPSE_URL: http://synapse:8008
+      SECRETS_DIR: /secrets
+    volumes:
+      - ./data/secrets:/secrets:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   caddy:
     image: caddy:2.11.7-alpine
     restart: unless-stopped
     depends_on:
       synapse: { condition: service_healthy }
       bootstrap: { condition: service_completed_successfully }
+      admin: { condition: service_healthy }
     ports:
       - "${CHAT_PORT:-8080}:8080"
     volumes:

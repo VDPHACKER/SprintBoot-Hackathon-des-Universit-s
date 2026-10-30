@@ -15,6 +15,10 @@
 		reverse_proxy synapse:8008
 	}
 
+	handle_path /admin-api/* {
+		reverse_proxy admin:3000
+	}
+
 	handle {
 		respond "Not found" 404
 	}

@@ -8,7 +8,7 @@ mkdir -p "$SECRETS" "$DATA"
 
 gen() { python -c "import secrets; print(secrets.token_urlsafe(32))"; }
 
-for name in postgres_password registration_shared_secret macaroon_secret_key form_secret; do
+for name in postgres_password registration_shared_secret macaroon_secret_key form_secret admin_api_token; do
   if [ ! -s "$SECRETS/$name" ]; then
     (umask 077; gen > "$SECRETS/$name")
     echo "secret généré: $name"
@@ -35,6 +35,7 @@ cp /templates/log.config "$DATA/log.config"
 # Clé de signature du serveur (créée seulement si absente).
 python -m synapse.app.homeserver --config-path "$DATA/homeserver.yaml" --generate-keys
 
+chown 1000:1000 "$SECRETS/admin_api_token"
 mkdir -p "$DATA/media_store"
 chown -R 991:991 "$DATA"
 echo "init terminé"

@@ -38,6 +38,7 @@ def token_is_valid(token):
 if os.path.exists(TOKEN_PATH):
     existing = open(TOKEN_PATH, encoding="utf-8").read().strip()
     if existing and token_is_valid(existing):
+        os.chown(TOKEN_PATH, 1000, 1000)  # lisible par le service d'administration (uid 1000)
         print("svc-admin déjà prêt")
         sys.exit(0)
 
@@ -65,4 +66,5 @@ old_umask = os.umask(0o077)
 with open(TOKEN_PATH, "w", encoding="utf-8") as f:
     f.write(result["access_token"])
 os.umask(old_umask)
+os.chown(TOKEN_PATH, 1000, 1000)
 print("svc-admin créé")
