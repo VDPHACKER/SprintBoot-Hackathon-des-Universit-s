@@ -94,13 +94,14 @@ export async function waitForEvent(
   roomId: string,
   predicate: (event: MatrixEvent) => boolean,
   timeoutMs = 30_000,
+  type = 'm.room.message',
 ): Promise<MatrixEvent> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const room = client.getRoom(roomId)
     for (const event of room?.getLiveTimeline().getEvents() ?? []) {
       await client.decryptEventIfNeeded(event)
-      if (event.getType() === 'm.room.message' && predicate(event)) return event
+      if (event.getType() === type && predicate(event)) return event
     }
     await new Promise((r) => setTimeout(r, 500))
   }

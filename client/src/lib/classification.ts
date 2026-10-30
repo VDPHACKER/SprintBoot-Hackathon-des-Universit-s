@@ -43,14 +43,8 @@ export function readClassification(content: Record<string, unknown>): Classifica
   }
 }
 
-/** Envoie un message texte avec son niveau. L'expiration vaut `maintenant + ttlMs`, ou la durée par défaut du niveau. */
-export async function sendClassified(
-  client: Pick<MatrixClient, 'sendMessage'>,
-  roomId: string,
-  body: string,
-  level: Level,
-  ttlMs?: number,
-): Promise<string> {
+/** Contenu d'un message texte avec son niveau et son éventuelle échéance. Lève EMPTY_MESSAGE ou INVALID_TTL. */
+export function classifiedContent(body: string, level: Level, ttlMs?: number): Record<string, unknown> {
   if (body.trim() === '') throw new Error('EMPTY_MESSAGE')
   if (ttlMs !== undefined && !(Number.isFinite(ttlMs) && ttlMs > 0)) throw new Error('INVALID_TTL')
 
@@ -60,7 +54,18 @@ export async function sendClassified(
   if (level !== 'normal' || ttl !== null) {
     content[CLASSIFICATION_KEY] = { level, expiresAt: ttl === null ? null : Date.now() + ttl }
   }
-  const { event_id } = await client.sendMessage(roomId, content as never)
+  return content
+}
+
+/** Envoie un message texte avec son niveau. L'expiration vaut `maintenant + ttlMs`, ou la durée par défaut du niveau. */
+export async function sendClassified(
+  client: Pick<MatrixClient, 'sendMessage'>,
+  roomId: string,
+  body: string,
+  level: Level,
+  ttlMs?: number,
+): Promise<string> {
+  const { event_id } = await client.sendMessage(roomId, classifiedContent(body, level, ttlMs) as never)
   return event_id
 }
 
