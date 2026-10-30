@@ -1,0 +1,17 @@
+{
+  "name": "messagerie-souveraine-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "test:unit": "vitest run tests/unit --passWithNoTests",
+    "test:e2e": "vitest run tests/e2e",
+    "test:security": "vitest run tests/e2e -t SÉCURITÉ"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

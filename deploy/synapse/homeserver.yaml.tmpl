@@ -1,0 +1,59 @@
+# Rendu par scripts/init-stack.sh (string.Template). Ne pas modifier data/synapse/homeserver.yaml à la main.
+server_name: "${SERVER_NAME}"
+public_baseurl: "http://localhost:${CHAT_PORT}/"
+pid_file: /data/homeserver.pid
+report_stats: false
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      - names: [client, media]
+        compress: false
+
+database:
+  name: psycopg2
+  args:
+    user: synapse
+    password: "${POSTGRES_PASSWORD}"
+    database: synapse
+    host: postgres
+    cp_min: 5
+    cp_max: 10
+
+log_config: "/data/log.config"
+media_store_path: /data/media_store
+signing_key_path: "/data/${SERVER_NAME}.signing.key"
+
+registration_shared_secret: "${REGISTRATION_SHARED_SECRET}"
+macaroon_secret_key: "${MACAROON_SECRET_KEY}"
+form_secret: "${FORM_SECRET}"
+
+# Enrôlement fermé : seuls les comptes créés par l'administration existent.
+enable_registration: false
+allow_guest_access: false
+password_config:
+  enabled: false
+
+# Tous les salons sont chiffrés de bout en bout dès leur création.
+encryption_enabled_by_default_for_room_type: all
+
+# Minimisation des métadonnées.
+presence:
+  enabled: false
+url_preview_enabled: false
+user_ips_max_age: 7d
+
+# Aucune fédération, aucun appel sortant vers d'autres serveurs.
+federation_domain_whitelist: []
+trusted_key_servers: []
+suppress_key_server_warning: true
+allow_public_rooms_over_federation: false
+
+max_upload_size: 50M
+user_directory:
+  enabled: true
+  search_all_users: false

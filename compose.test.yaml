@@ -1,0 +1,6 @@
+# Surcharge réservée aux tests : publie Synapse sur la boucle locale pour créer des comptes jetables.
+# Ne jamais utiliser en production : la configuration normale n'expose pas l'API d'administration.
+services:
+  synapse:
+    ports:
+      - "127.0.0.1:8008:8008"

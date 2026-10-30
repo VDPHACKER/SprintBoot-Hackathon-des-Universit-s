@@ -1,0 +1,21 @@
+{
+	auto_https off
+	admin off
+}
+
+:8080 {
+	# Jamais exposés : API d'administration et fédération.
+	@blocked path /_synapse/admin/* /_matrix/federation/* /_matrix/key/*
+	handle @blocked {
+		respond "Not found" 404
+	}
+
+	@matrix path /_matrix/* /_synapse/client/*
+	handle @matrix {
+		reverse_proxy synapse:8008
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}

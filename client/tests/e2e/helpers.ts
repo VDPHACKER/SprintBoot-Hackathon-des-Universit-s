@@ -1,0 +1,67 @@
+import { execFileSync } from 'node:child_process'
+import { createHmac, randomBytes } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+export const ROOT = resolve(import.meta.dirname, '../../..')
+/** Entrée publique (Caddy). Windows ne résout pas *.localhost hors navigateur : on reste sur localhost. */
+export const BASE = 'http://localhost:8080'
+/** Port Synapse direct, publié sur la boucle locale par compose.test.yaml uniquement. */
+export const SYNAPSE_DIRECT = 'http://127.0.0.1:8008'
+export const SERVER_NAME = 'chat.localhost'
+
+export const COMPOSE = ['compose', '-f', 'compose.yaml', '-f', 'compose.test.yaml']
+
+export function readSecret(name: string): string {
+  return readFileSync(resolve(ROOT, 'data/secrets', name), 'utf8').trim()
+}
+
+/** Jeton du compte de service @svc-admin, créé par le service `bootstrap`. */
+export function adminToken(): string {
+  return readSecret('svc-admin.token')
+}
+
+export interface TestAgent {
+  userId: string
+  accessToken: string
+  deviceId: string
+}
+
+/**
+ * Crée un compte jetable avec un vrai appareil, par l'API d'enregistrement à secret partagé de Synapse
+ * (HMAC-SHA1 imposé par cette API, via node:crypto : ce n'est pas de la cryptographie maison).
+ * L'API /users/{id}/login renvoie un jeton sans appareil, inutilisable pour téléverser des clés E2EE.
+ */
+export async function registerAgent(prefix: string): Promise<TestAgent> {
+  const username = `${prefix}-${randomBytes(4).toString('hex')}`
+  const password = randomBytes(24).toString('hex')
+  const sharedSecret = readSecret('registration_shared_secret')
+  const { nonce } = (await (await fetch(`${SYNAPSE_DIRECT}/_synapse/admin/v1/register`)).json()) as { nonce: string }
+  const mac = createHmac('sha1', sharedSecret)
+    .update(Buffer.from(`${nonce}\0${username}\0${password}\0notadmin`))
+    .digest('hex')
+  const res = await fetch(`${SYNAPSE_DIRECT}/_synapse/admin/v1/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ nonce, username, password, admin: false, mac }),
+  })
+  if (!res.ok) throw new Error(`registerAgent a échoué: ${res.status} ${await res.text()}`)
+  const j = (await res.json()) as { user_id: string; access_token: string; device_id: string }
+  return { userId: j.user_id, accessToken: j.access_token, deviceId: j.device_id }
+}
+
+/** Export texte complet de la base Synapse, pour prouver l'absence de clair. */
+export function dumpDb(): string {
+  return execFileSync('docker', [...COMPOSE, 'exec', '-T', 'postgres', 'pg_dump', '-U', 'synapse', 'synapse'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 512 * 1024 * 1024,
+  })
+}
+
+export async function api(path: string, token: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(`${BASE}${path}`, {
+    ...init,
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...(init.headers ?? {}) },
+  })
+}
