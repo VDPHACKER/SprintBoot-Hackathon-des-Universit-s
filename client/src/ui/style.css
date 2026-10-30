@@ -32,6 +32,13 @@ h2 { font-size: 1rem; margin: 1rem 0 .25rem; }
 .sender { font-size: .8rem; color: var(--muted); }
 .body { white-space: pre-wrap; overflow-wrap: anywhere; }
 .composer { border-top: 1px solid var(--line); padding: .75rem 1rem; display: grid; gap: .5rem; }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; font-size: .8rem; margin-top: .25rem; }
+.meta select { width: auto; padding: .1rem .25rem; font-size: .8rem; }
+.level { padding: .05rem .5rem; border-radius: 999px; border: 1px solid; font-weight: 600; }
+.level-restreinte { color: #8a5a00; } .level-confidentiel { color: var(--warn); }
+@media (prefers-color-scheme: dark) { .level-restreinte { color: #ffc861; } }
+.lock { color: var(--muted); } .ok { color: var(--accent); }
+.hint { color: var(--muted); font-size: .85rem; margin: 0; }
 .body button.file { background: transparent; color: var(--fg); border-color: var(--line); text-align: left; overflow-wrap: anywhere; }
 .error { color: var(--warn); margin: .25rem 0 0; min-height: 1.2em; }
 @media (max-width: 640px) { .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; } aside { border-right: 0; border-bottom: 1px solid var(--line); } .content { height: 70vh; } }

@@ -1,4 +1,5 @@
 import { ClientEvent, MatrixEventEvent, RoomEvent, type MatrixClient, type MatrixEvent, type Room } from 'matrix-js-sdk'
+import { LEVELS, forwardMessage, policyFor, readClassification, sendClassified, type Level } from '../lib/classification.ts'
 import { downloadFile, sendFile } from '../matrix/files.ts'
 import { createEncryptedRoom, sendText } from '../matrix/rooms.ts'
 import { logout, ssoLoginUrl, startSession } from '../matrix/session.ts'
@@ -75,9 +76,23 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   client.on(RoomEvent.MyMembership, refresh)
   client.on(MatrixEventEvent.Decrypted, refresh)
 
-  const sidebar = h('aside', { 'aria-label': S.rooms })
-  const content = h('section', { class: 'content' })
+  // Éléments persistants: les champs de saisie ne sont JAMAIS reconstruits, sinon un message en cours de frappe
+  // disparaîtrait à chaque événement de synchronisation.
+  const lists = h('div')
+  const newRoomForm = drawNewRoomForm()
+  const sidebar = h('aside', { 'aria-label': S.rooms },
+    h('header', {}, h('strong', {}, client.getUserId() ?? ''), h('button', { type: 'button', click: () => void logout(client).then(() => location.assign('/')) }, S.logout)),
+    newRoomForm,
+    lists,
+  )
+  const roomHeader = h('header')
+  const timelineList = h('ol', { class: 'timeline' })
+  const content = h('section', { class: 'content' }, h('p', { class: 'status' }, S.noRoom))
   root.replaceChildren(h('div', { class: 'layout' }, sidebar, content))
+
+  const composers = new Map<string, HTMLElement>() // un brouillon par salon
+  let shownRoom: string | undefined
+  let listsSignature = ''
 
   const eventBody = (event: MatrixEvent): string => {
     if (event.getType() === 'm.room.encrypted') {
@@ -106,28 +121,73 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     return h('span', { class: 'body' }, eventBody(event))
   }
 
-  const drawTimeline = (room: Room): HTMLElement => {
-    const list = h('ol', { class: 'timeline' })
+  /** Niveau de classification du message, et soit l'interdiction de transfert, soit le choix du salon de destination. */
+  const eventMeta = (event: MatrixEvent, room: Room): HTMLElement | undefined => {
+    if (event.getType() !== 'm.room.message') return undefined
+    const classification = readClassification(event.getContent())
+    const note = h('span', { role: 'status' })
+    const meta = h('span', { class: 'meta' })
+    if (classification.level !== 'normal') {
+      meta.append(h('span', { class: `level level-${classification.level}` }, S.levels[classification.level]))
+    }
+    if (classification.noForward) {
+      meta.append(h('span', { class: 'lock' }, S.noForward))
+    } else {
+      const others = client.getRooms().filter((r) => r.getMyMembership() === 'join' && r.roomId !== room.roomId)
+      if (others.length) {
+        const select = h('select', { 'aria-label': S.forwardTo, change: () => {
+          const destination = select.value
+          select.value = ''
+          if (!destination) return
+          forwardMessage(client, event, destination)
+            .then(() => { note.className = 'ok'; note.textContent = S.forwarded })
+            .catch((e) => { note.className = 'error'; note.textContent = errorText(e) })
+        } }, h('option', { value: '' }, S.forwardTo), ...others.map((r) => h('option', { value: r.roomId }, r.name)))
+        meta.append(select)
+      }
+    }
+    meta.append(note)
+    return meta
+  }
+
+  const fillTimeline = (room: Room, forceBottom: boolean) => {
+    // On ne ramène en bas que si l'agent y était déjà: il peut relire l'historique sans être renvoyé en bas.
+    const atBottom = timelineList.scrollHeight - timelineList.scrollTop - timelineList.clientHeight < 40
+    const items: HTMLElement[] = []
     for (const event of room.getLiveTimeline().getEvents()) {
       const type = event.getType()
       if (type !== 'm.room.message' && type !== 'm.room.encrypted') continue
-      list.append(
+      const meta = eventMeta(event, room)
+      items.push(
         h('li', { class: event.getSender() === client.getUserId() ? 'mine' : 'theirs' },
           h('span', { class: 'sender' }, room.getMember(event.getSender() ?? '')?.name ?? event.getSender() ?? ''),
           eventNode(event),
+          ...(meta ? [meta] : []),
         ),
       )
     }
-    queueMicrotask(() => list.scrollTo({ top: list.scrollHeight }))
-    return list
+    timelineList.replaceChildren(...items)
+    if (forceBottom || atBottom) timelineList.scrollTop = timelineList.scrollHeight
   }
 
-  const drawComposer = (roomId: string): HTMLElement => {
-    const input = h('textarea', { id: 'message', rows: '2', required: true })
+  function composerFor(roomId: string): HTMLElement {
+    const cached = composers.get(roomId)
+    if (cached) return cached
+    const input = h('textarea', { id: `message-${roomId}`, rows: '2', required: true })
+    const level = h('select', { id: `level-${roomId}` }, ...LEVELS.map((l) => h('option', { value: l }, S.levels[l])))
+    const hint = h('p', { class: 'hint' })
     const error = h('p', { class: 'error', role: 'alert' })
+    const describe = () => {
+      const policy = policyFor(level.value as Level)
+      hint.textContent = [policy.noForward ? S.noForward : '', policy.defaultTtlMs ? S.expiresIn(Math.round(policy.defaultTtlMs / 3_600_000)) : ''].filter(Boolean).join(' ')
+    }
+    level.addEventListener('change', describe)
+    describe()
     const send = async () => {
       try {
-        await sendText(client, roomId, input.value)
+        const chosen = level.value as Level
+        if (chosen === 'normal') await sendText(client, roomId, input.value)
+        else await sendClassified(client, roomId, input.value, chosen)
         input.value = ''
         error.textContent = ''
       } catch (e) {
@@ -140,7 +200,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
         void send()
       }
     })
-    const file = h('input', { id: 'file', type: 'file' })
+    const file = h('input', { id: `file-${roomId}`, type: 'file' })
     file.addEventListener('change', () => {
       const chosen = file.files?.[0]
       if (!chosen) return
@@ -149,17 +209,22 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
         .catch((e) => { error.textContent = errorText(e) })
         .finally(() => { file.value = '' })
     })
-    return h('form', { class: 'composer', submit: (e) => { e.preventDefault(); void send() } },
-      h('label', { for: 'message' }, S.messageLabel),
+    const form = h('form', { class: 'composer', submit: (e) => { e.preventDefault(); void send() } },
+      h('label', { for: `message-${roomId}` }, S.messageLabel),
       input,
+      h('label', { for: `level-${roomId}` }, S.level),
+      level,
+      hint,
       h('button', { type: 'submit' }, S.send),
-      h('label', { for: 'file' }, S.attach),
+      h('label', { for: `file-${roomId}` }, S.attach),
       file,
       error,
     )
+    composers.set(roomId, form)
+    return form
   }
 
-  const drawNewRoomForm = (): HTMLElement => {
+  function drawNewRoomForm(): HTMLElement {
     const name = h('input', { id: 'room-name', required: true })
     const invitees = h('input', { id: 'room-invitees' })
     const error = h('p', { class: 'error', role: 'alert' })
@@ -178,28 +243,37 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     )
   }
 
-  const draw = () => {
+  function draw() {
     const rooms = client.getRooms()
     const invites = rooms.filter((r) => r.getMyMembership() === 'invite')
     const joined = rooms.filter((r) => r.getMyMembership() === 'join')
 
-    sidebar.replaceChildren(
-      h('header', {}, h('strong', {}, client.getUserId() ?? ''), h('button', { type: 'button', click: () => void logout(client).then(() => location.assign('/')) }, S.logout)),
-      drawNewRoomForm(),
-      ...(invites.length ? [h('h2', {}, S.invitations), h('ul', {}, ...invites.map((r) =>
-        h('li', {}, r.name, h('button', { type: 'button', click: () => void client.joinRoom(r.roomId).then(() => { selected = r.roomId; refresh() }) }, S.join))))] : []),
-      h('h2', {}, S.rooms),
-      h('ul', { class: 'rooms' }, ...joined.map((r) =>
-        h('li', {}, h('button', { type: 'button', class: r.roomId === selected ? 'active' : '', 'aria-current': String(r.roomId === selected), click: () => { selected = r.roomId; refresh() } }, r.name)))),
-    )
+    // Les listes ne sont redessinées que si elles ont changé (le clavier garde le focus sur un bouton de la liste).
+    const signature = JSON.stringify([selected, invites.map((r) => [r.roomId, r.name]), joined.map((r) => [r.roomId, r.name])])
+    if (signature !== listsSignature) {
+      listsSignature = signature
+      lists.replaceChildren(
+        ...(invites.length ? [h('h2', {}, S.invitations), h('ul', {}, ...invites.map((r) =>
+          h('li', {}, r.name, h('button', { type: 'button', click: () => void client.joinRoom(r.roomId).then(() => { selected = r.roomId; refresh() }) }, S.join))))] : []),
+        h('h2', {}, S.rooms),
+        h('ul', { class: 'rooms' }, ...joined.map((r) =>
+          h('li', {}, h('button', { type: 'button', class: r.roomId === selected ? 'active' : '', 'aria-current': String(r.roomId === selected), click: () => { selected = r.roomId; refresh() } }, r.name)))),
+      )
+    }
 
     const room = selected ? client.getRoom(selected) : null
-    if (!room) return content.replaceChildren(h('p', { class: 'status' }, S.noRoom))
-    content.replaceChildren(
-      h('header', {}, h('h2', {}, room.name), h('span', { class: room.hasEncryptionStateEvent() ? 'badge ok' : 'badge warn' }, room.hasEncryptionStateEvent() ? S.encrypted : S.notEncrypted)),
-      drawTimeline(room),
-      drawComposer(room.roomId),
-    )
+    if (!room) {
+      if (shownRoom !== undefined) content.replaceChildren(h('p', { class: 'status' }, S.noRoom))
+      shownRoom = undefined
+      return
+    }
+    const switched = shownRoom !== room.roomId
+    if (switched) {
+      content.replaceChildren(roomHeader, timelineList, composerFor(room.roomId))
+      shownRoom = room.roomId
+    }
+    roomHeader.replaceChildren(h('h2', {}, room.name), h('span', { class: room.hasEncryptionStateEvent() ? 'badge ok' : 'badge warn' }, room.hasEncryptionStateEvent() ? S.encrypted : S.notEncrypted))
+    fillTimeline(room, switched)
   }
   draw()
 }

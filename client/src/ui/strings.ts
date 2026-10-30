@@ -1,4 +1,6 @@
 /** Libellés de l'interface. Centralisés ici pour être branchés sur l'internationalisation (tâche 12). */
+import type { Level } from '../lib/classification.ts'
+
 export const S = {
   appTitle: 'Messagerie souveraine',
   loginIntro: 'Réservé aux agents enrôlés. La connexion demande votre mot de passe puis un code à usage unique.',
@@ -16,6 +18,12 @@ export const S = {
   messageLabel: 'Votre message',
   send: 'Envoyer',
   attach: 'Joindre un fichier',
+  level: 'Niveau de classification',
+  levels: { normal: 'Normal', restreinte: 'Diffusion restreinte', confidentiel: 'Confidentiel' } as Record<Level, string>,
+  noForward: 'Transfert interdit.',
+  expiresIn: (hours: number) => `Expire dans ${hours} h.`,
+  forwardTo: 'Transférer vers…',
+  forwarded: 'Message transféré.',
   download: 'Télécharger',
   encrypted: 'Chiffré de bout en bout',
   notEncrypted: 'ATTENTION: ce salon n’est pas chiffré',
@@ -26,6 +34,9 @@ export const S = {
     INVALID_USER: 'Identifiant d’agent invalide.',
     EMPTY_ROOM_NAME: 'Le nom du salon est obligatoire.',
     EMPTY_FILE: 'Le fichier est vide.',
+    FORWARD_FORBIDDEN: 'Ce niveau de classification interdit le transfert.',
+    NOT_A_MESSAGE: 'Ce message ne peut pas être transféré.',
+    INVALID_TTL: 'Durée d’expiration invalide.',
     FILE_TOO_LARGE: 'Le fichier dépasse la taille autorisée.',
     DOWNLOAD_FAILED: 'Le téléchargement a échoué ou le fichier a été altéré.',
     generic: 'Une erreur est survenue. Réessayez.',
