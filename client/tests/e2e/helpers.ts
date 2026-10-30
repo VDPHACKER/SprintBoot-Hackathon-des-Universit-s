@@ -88,16 +88,25 @@ export async function startTestClient(agent: TestAgent): Promise<MatrixClient> {
   return client
 }
 
-/** Attend un message texte déchiffré portant exactement ce corps dans le salon. */
-export async function waitForMessage(client: MatrixClient, roomId: string, body: string, timeoutMs = 30_000): Promise<MatrixEvent> {
+/** Attend un événement de message déchiffré qui satisfait le prédicat, dans le salon. */
+export async function waitForEvent(
+  client: MatrixClient,
+  roomId: string,
+  predicate: (event: MatrixEvent) => boolean,
+  timeoutMs = 30_000,
+): Promise<MatrixEvent> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const room = client.getRoom(roomId)
     for (const event of room?.getLiveTimeline().getEvents() ?? []) {
       await client.decryptEventIfNeeded(event)
-      if (event.getType() === 'm.room.message' && event.getContent().body === body) return event
+      if (event.getType() === 'm.room.message' && predicate(event)) return event
     }
     await new Promise((r) => setTimeout(r, 500))
   }
-  throw new Error(`message attendu non reçu dans ${roomId}: ${body}`)
+  throw new Error(`événement attendu non reçu dans ${roomId}`)
 }
+
+/** Attend un message texte déchiffré portant exactement ce corps dans le salon. */
+export const waitForMessage = (client: MatrixClient, roomId: string, body: string, timeoutMs = 30_000) =>
+  waitForEvent(client, roomId, (e) => e.getContent().body === body, timeoutMs)

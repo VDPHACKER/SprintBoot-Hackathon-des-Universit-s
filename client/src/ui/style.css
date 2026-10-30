@@ -32,5 +32,6 @@ h2 { font-size: 1rem; margin: 1rem 0 .25rem; }
 .sender { font-size: .8rem; color: var(--muted); }
 .body { white-space: pre-wrap; overflow-wrap: anywhere; }
 .composer { border-top: 1px solid var(--line); padding: .75rem 1rem; display: grid; gap: .5rem; }
+.body button.file { background: transparent; color: var(--fg); border-color: var(--line); text-align: left; overflow-wrap: anywhere; }
 .error { color: var(--warn); margin: .25rem 0 0; min-height: 1.2em; }
 @media (max-width: 640px) { .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; } aside { border-right: 0; border-bottom: 1px solid var(--line); } .content { height: 70vh; } }

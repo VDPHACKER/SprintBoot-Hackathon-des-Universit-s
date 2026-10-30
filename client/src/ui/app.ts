@@ -1,4 +1,5 @@
 import { ClientEvent, MatrixEventEvent, RoomEvent, type MatrixClient, type MatrixEvent, type Room } from 'matrix-js-sdk'
+import { downloadFile, sendFile } from '../matrix/files.ts'
 import { createEncryptedRoom, sendText } from '../matrix/rooms.ts'
 import { logout, ssoLoginUrl, startSession } from '../matrix/session.ts'
 import { S } from './strings.ts'
@@ -17,6 +18,18 @@ function h<K extends keyof HTMLElementTagNameMap>(
   }
   el.append(...children)
   return el
+}
+
+const formatSize = (n: number) => (n < 1024 ? `${n} o` : n < 1048576 ? `${(n / 1024).toFixed(1)} Ko` : `${(n / 1048576).toFixed(1)} Mo`)
+
+/** Propose le fichier déchiffré au téléchargement sous son nom d'origine. */
+function saveBlob(blob: Blob, name: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = h('a', { href: url, download: name })
+  document.body.append(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
 
 const errorText = (e: unknown) => S.errors[e instanceof Error ? e.message : ''] ?? S.errors.generic
@@ -74,6 +87,24 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     return typeof body === 'string' ? body : ''
   }
 
+  /** Un message de fichier devient un bouton de téléchargement; tout autre message est du texte. */
+  const eventNode = (event: MatrixEvent): HTMLElement => {
+    const content = event.getContent()
+    if (event.getType() === 'm.room.message' && content.msgtype === 'm.file' && content.file) {
+      const size = typeof content.info?.size === 'number' ? ` (${formatSize(content.info.size)})` : ''
+      const name = String(content.filename ?? content.body ?? 'fichier')
+      const error = h('span', { class: 'error', role: 'alert' })
+      const button = h('button', { type: 'button', class: 'file', click: () => {
+        error.textContent = ''
+        downloadFile(client, event)
+          .then((blob) => saveBlob(blob, name))
+          .catch(() => { error.textContent = S.errors.DOWNLOAD_FAILED })
+      } }, `${S.download} ${name}${size}`)
+      return h('span', { class: 'body' }, button, error)
+    }
+    return h('span', { class: 'body' }, eventBody(event))
+  }
+
   const drawTimeline = (room: Room): HTMLElement => {
     const list = h('ol', { class: 'timeline' })
     for (const event of room.getLiveTimeline().getEvents()) {
@@ -82,7 +113,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
       list.append(
         h('li', { class: event.getSender() === client.getUserId() ? 'mine' : 'theirs' },
           h('span', { class: 'sender' }, room.getMember(event.getSender() ?? '')?.name ?? event.getSender() ?? ''),
-          h('span', { class: 'body' }, eventBody(event)),
+          eventNode(event),
         ),
       )
     }
@@ -108,10 +139,21 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
         void send()
       }
     })
+    const file = h('input', { id: 'file', type: 'file' })
+    file.addEventListener('change', () => {
+      const chosen = file.files?.[0]
+      if (!chosen) return
+      sendFile(client, roomId, chosen, chosen.name)
+        .then(() => { error.textContent = '' })
+        .catch((e) => { error.textContent = errorText(e) })
+        .finally(() => { file.value = '' })
+    })
     return h('form', { class: 'composer', submit: (e) => { e.preventDefault(); void send() } },
       h('label', { for: 'message' }, S.messageLabel),
       input,
       h('button', { type: 'submit' }, S.send),
+      h('label', { for: 'file' }, S.attach),
+      file,
       error,
     )
   }

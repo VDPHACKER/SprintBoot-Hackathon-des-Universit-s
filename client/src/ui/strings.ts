@@ -14,6 +14,8 @@ export const S = {
   noRoom: 'Choisissez ou créez un salon.',
   messageLabel: 'Votre message',
   send: 'Envoyer',
+  attach: 'Joindre un fichier',
+  download: 'Télécharger',
   encrypted: 'Chiffré de bout en bout',
   notEncrypted: 'ATTENTION: ce salon n’est pas chiffré',
   decrypting: 'Déchiffrement en cours…',
@@ -22,6 +24,9 @@ export const S = {
   errors: {
     INVALID_USER: 'Identifiant d’agent invalide.',
     EMPTY_ROOM_NAME: 'Le nom du salon est obligatoire.',
+    EMPTY_FILE: 'Le fichier est vide.',
+    FILE_TOO_LARGE: 'Le fichier dépasse la taille autorisée.',
+    DOWNLOAD_FAILED: 'Le téléchargement a échoué ou le fichier a été altéré.',
     generic: 'Une erreur est survenue. Réessayez.',
   } as Record<string, string>,
 }

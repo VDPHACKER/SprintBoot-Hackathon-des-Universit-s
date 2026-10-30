@@ -1,23 +1,24 @@
 {
-    "name":  "messagerie-souveraine-client",
-    "version":  "0.1.0",
-    "private":  true,
-    "type":  "module",
-    "license":  "AGPL-3.0-or-later",
-    "scripts":  {
-                    "test:unit":  "vitest run tests/unit --passWithNoTests",
-                    "test:e2e":  "vitest run tests/e2e",
-                    "test:security":  "vitest run tests/e2e -t SÃ‰CURITÃ‰",
-                    "build":  "vite build",
-                    "dev":  "vite"
-                },
-    "devDependencies":  {
-                            "@types/node":  "26.6.6",
-                            "typescript":  "7.0.2",
-                            "vite":  "8.3.5",
-                            "vitest":  "5.0.5"
-                        },
-    "dependencies":  {
-                         "matrix-js-sdk":  "45.0.0"
-                     }
+    "name": "messagerie-souveraine-client",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "license": "AGPL-3.0-or-later",
+    "scripts": {
+        "test:unit": "vitest run tests/unit --passWithNoTests",
+        "test:e2e": "vitest run tests/e2e",
+        "test:security": "vitest run tests/e2e -t SÃ‰CURITÃ‰",
+        "build": "vite build",
+        "dev": "vite"
+    },
+    "devDependencies": {
+        "@types/node": "26.6.6",
+        "typescript": "7.0.2",
+        "vite": "8.3.5",
+        "vitest": "5.0.5"
+    },
+    "dependencies": {
+        "@matrix-org/matrix-sdk-crypto-wasm": "18.9.0",
+        "matrix-js-sdk": "45.0.0"
+    }
 }
