@@ -57,6 +57,6 @@ serveur : c'est l'origine du module `no_plaintext`.
 
 ## 6. Avant une mise en service réelle
 
-TLS partout et retrait des deux réglages de démonstration ; `DEMO_ACCOUNTS=false` ; secrets hors du dossier de travail
+Miroir interne des images et paquets (l'installation les télécharge, le fonctionnement non) ; TLS partout et retrait des deux réglages de démonstration ; `DEMO_ACCOUNTS=false` ; secrets hors du dossier de travail
 (coffre) ; console d'administration de Keycloak accessible par un réseau d'exploitation seulement ; politique de rétention
 des anciens messages chiffrés ; sauvegardes chiffrées ; revue indépendante.

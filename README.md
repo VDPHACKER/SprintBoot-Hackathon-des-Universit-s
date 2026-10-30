@@ -83,4 +83,5 @@ bash scripts/test-security.sh      # 51 épreuves de sécurité automatisées
 - Le flou des messages confidentiels **dissuade**, il ne bloque pas les captures d'écran (impossible sur le web).
 - Pas d'écran de vérification des appareils ; le jeton et les clés restent dans le navigateur, non chiffrés au repos.
 - Heures de lecture et d'expiration : horloge de chaque appareil.
+- L'**installation** télécharge des images Docker et des paquets (construction du client) : le fonctionnement n'en dépend pas, mais un déploiement isolé doit prévoir un miroir interne.
 - Mooré partiel, dioula absent ; annuaire disponible côté serveur mais pas dans l'interface ; ni mode dégradé, ni archivage légal.
