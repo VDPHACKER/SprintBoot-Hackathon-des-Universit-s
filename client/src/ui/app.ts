@@ -3,6 +3,8 @@ import { ACK_TYPE, INSTRUCTION_KEY, contentSha256, isInstructionAuthority, sendA
 import { LEVELS, forwardMessage, policyFor, readClassification, sendClassified, type Level } from '../lib/classification.ts'
 import { scheduleExpiry, visibleEvents } from '../lib/expiry.ts'
 import { buildProof, type ProofReport } from '../lib/proof.ts'
+import { LOCALES, getLocale, persistLocale, type Locale } from '../i18n/index.ts'
+import { sendVoice, startRecording } from '../lib/voice.ts'
 import { downloadFile, sendFile } from '../matrix/files.ts'
 import { createEncryptedRoom, sendText } from '../matrix/rooms.ts'
 import { logout, ssoLoginUrl, startSession } from '../matrix/session.ts'
@@ -42,6 +44,19 @@ function saveBlob(blob: Blob, name: string): void {
 
 const errorText = (e: unknown) => S.errors[e instanceof Error ? e.message : ''] ?? S.errors.generic
 
+const LANGUAGE_NAMES: Record<Locale, string> = { fr: 'Français', mos: 'Mooré (partiel)' }
+
+/** Choix de la langue. Le changement recharge la page: tous les libellés sont reconstruits dans la nouvelle langue. */
+function languageSelect(): HTMLElement {
+  const select = h('select', { 'aria-label': S.language, change: () => { persistLocale(select.value as Locale); window.location.reload() } },
+    ...LOCALES.map((l) => {
+      const option = h('option', { value: l }, LANGUAGE_NAMES[l])
+      option.selected = l === getLocale()
+      return option
+    }))
+  return select
+}
+
 function renderLogin(root: HTMLElement): void {
   root.replaceChildren(
     h('main', { class: 'login' },
@@ -49,6 +64,7 @@ function renderLogin(root: HTMLElement): void {
       ...(new URL(window.location.href).searchParams.has('revoked') ? [h('p', { class: 'error', role: 'alert' }, S.revoked)] : []),
       h('p', {}, S.loginIntro),
       h('a', { class: 'button', href: ssoLoginUrl() }, S.login),
+      languageSelect(),
     ),
   )
 }
@@ -101,7 +117,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   const lists = h('div')
   const newRoomForm = drawNewRoomForm()
   const sidebar = h('aside', { 'aria-label': S.rooms },
-    h('header', {}, h('strong', {}, client.getUserId() ?? ''), h('button', { type: 'button', click: () => void logout(client).then(() => location.assign('/')) }, S.logout)),
+    h('header', {}, h('strong', {}, client.getUserId() ?? ''), languageSelect(), h('button', { type: 'button', click: () => void logout(client).then(() => location.assign('/')) }, S.logout)),
     newRoomForm,
     lists,
   )
@@ -137,6 +153,23 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
           .catch(() => { error.textContent = S.errors.DOWNLOAD_FAILED })
       } }, `${S.download} ${name}${size}`)
       return h('span', { class: 'body' }, button, error)
+    }
+    if (event.getType() === 'm.room.message' && content.msgtype === 'm.audio' && content.file) {
+      const seconds = typeof content.info?.duration === 'number' ? Math.round(content.info.duration / 1000) : undefined
+      const length = seconds === undefined ? '' : ` (${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')})`
+      const holder = h('span', { class: 'body' })
+      const error = h('span', { class: 'error', role: 'alert' })
+      holder.append(h('button', { type: 'button', class: 'file', click: () => {
+        error.textContent = ''
+        downloadFile(client, event)
+          .then((blob) => {
+            const audio = h('audio', { controls: true, src: URL.createObjectURL(blob) })
+            holder.replaceChildren(audio, error)
+            void audio.play().catch(() => undefined)
+          })
+          .catch(() => { error.textContent = S.errors.DOWNLOAD_FAILED })
+      } }, `${S.voicePlay} · ${S.voiceMessage}${length}`), error)
+      return holder
     }
     return h('span', { class: 'body' }, eventBody(event))
   }
@@ -232,6 +265,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     )
   }
 
+  let lastTimelineSignature = ''
   const fillTimeline = (room: Room, forceBottom: boolean) => {
     // On ne ramène en bas que si l'agent y était déjà: il peut relire l'historique sans être renvoyé en bas.
     const atBottom = timelineList.scrollHeight - timelineList.scrollTop - timelineList.clientHeight < 40
@@ -247,17 +281,36 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
       }
     }
 
+    const shown = visibleEvents(all, now).filter((e) => e.getType() === 'm.room.message' || e.getType() === 'm.room.encrypted')
+
+    // Un seul minuteur, réglé sur la prochaine échéance: le message disparaît à l'heure, sans redessiner chaque seconde.
+    let nextDeadline: number | undefined
+    for (const event of shown) {
+      const { expiresAt } = readClassification(event.getContent())
+      if (expiresAt !== null && (nextDeadline === undefined || expiresAt < nextDeadline)) nextDeadline = expiresAt
+    }
+    clearTimeout(expiryTimer)
+    if (nextDeadline !== undefined) expiryTimer = setTimeout(refresh, Math.min(Math.max(nextDeadline - now, 0) + 50, MAX_TIMEOUT_MS))
+
+    // Rien de visible n'a changé: on ne touche pas au DOM. Sinon un message vocal en cours de lecture serait coupé
+    // à chaque événement de synchronisation, et une sélection de texte perdue.
+    const signature = JSON.stringify([
+      room.roomId,
+      shown.map((e) => [e.getId(), e.getType(), e.isDecryptionFailure()]),
+      shield.windowFocused && shield.tabVisible,
+      hashes.size,
+      room.getJoinedMemberCount(),
+      client.getRooms().filter((r) => r.getMyMembership() === 'join').map((r) => r.roomId),
+    ])
+    if (signature === lastTimelineSignature) return
+    lastTimelineSignature = signature
+
     const me = client.getUserId() ?? ''
     const watermark = room.getMember(me)?.name ?? me
     const items: HTMLElement[] = []
-    let nextDeadline: number | undefined
-    for (const event of visibleEvents(all, now)) {
+    for (const event of shown) {
       const type = event.getType()
-      if (type !== 'm.room.message' && type !== 'm.room.encrypted') continue
       const classification = readClassification(event.getContent())
-      if (classification.expiresAt !== null && (nextDeadline === undefined || classification.expiresAt < nextDeadline)) {
-        nextDeadline = classification.expiresAt
-      }
       const blurred = shouldBlur(classification.level, shield)
       const classes = [event.getSender() === client.getUserId() ? 'mine' : 'theirs']
       if (classification.level === 'confidentiel') classes.push('confidential')
@@ -285,10 +338,6 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     }
     timelineList.replaceChildren(...items)
     if (forceBottom || atBottom) timelineList.scrollTop = timelineList.scrollHeight
-
-    // Un seul minuteur, réglé sur la prochaine échéance: le message disparaît à l'heure, sans redessiner chaque seconde.
-    clearTimeout(expiryTimer)
-    if (nextDeadline !== undefined) expiryTimer = setTimeout(refresh, Math.min(Math.max(nextDeadline - now, 0) + 50, MAX_TIMEOUT_MS))
   }
   function composerFor(roomId: string): HTMLElement {
     const cached = composers.get(roomId)
@@ -334,6 +383,25 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
         .catch((e) => { error.textContent = errorText(e) })
         .finally(() => { file.value = '' })
     })
+    const mic = h('button', { type: 'button' }, S.voiceRecord)
+    const micStatus = h('span', { role: 'status', class: 'lock' })
+    let recording: { stop(): Promise<Blob> } | undefined
+    let startedAt = 0
+    mic.addEventListener('click', () => {
+      if (!recording) {
+        startRecording()
+          .then((r) => { recording = r; startedAt = Date.now(); mic.textContent = S.voiceStop; micStatus.textContent = S.voiceRecording; error.textContent = '' })
+          .catch(() => { error.textContent = S.errors.MIC_DENIED })
+        return
+      }
+      const finished = recording
+      recording = undefined
+      mic.textContent = S.voiceRecord
+      micStatus.textContent = ''
+      void finished.stop()
+        .then((blob) => sendVoice(client, roomId, blob, Date.now() - startedAt))
+        .catch((e) => { error.textContent = errorText(e) })
+    })
     const form = h('form', { class: 'composer', submit: (e) => { e.preventDefault(); void send() } },
       h('label', { for: `message-${roomId}` }, S.messageLabel),
       input,
@@ -344,6 +412,8 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
       h('button', { type: 'submit' }, S.send),
       h('label', { for: `file-${roomId}` }, S.attach),
       file,
+      mic,
+      micStatus,
       error,
     )
     composers.set(roomId, form)
@@ -397,6 +467,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     if (switched) {
       content.replaceChildren(roomHeader, timelineList, composerFor(room.roomId))
       shownRoom = room.roomId
+      lastTimelineSignature = ''
     }
     roomHeader.replaceChildren(h('h2', {}, room.name), h('span', { class: room.hasEncryptionStateEvent() ? 'badge ok' : 'badge warn' }, room.hasEncryptionStateEvent() ? S.encrypted : S.notEncrypted))
     fillTimeline(room, switched)

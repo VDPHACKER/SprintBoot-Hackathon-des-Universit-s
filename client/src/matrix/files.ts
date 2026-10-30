@@ -14,6 +14,7 @@ export async function sendFile(
   roomId: string,
   file: Blob,
   name: string,
+  options: { msgtype?: 'm.file' | 'm.audio'; durationMs?: number } = {},
 ): Promise<string> {
   if (file.size === 0) throw new Error('EMPTY_FILE')
   const max = await client.getMediaConfig(true).then((c) => c['m.upload.size'], () => undefined)
@@ -29,10 +30,14 @@ export async function sendFile(
         throw e.httpStatus === 413 ? new Error('FILE_TOO_LARGE') : e
       })
     const { event_id } = await client.sendMessage(roomId, {
-      msgtype: 'm.file',
+      msgtype: options.msgtype ?? 'm.file',
       body: name,
       filename: name,
-      info: { size: file.size, mimetype: file.type || DEFAULT_MIME },
+      info: {
+        size: file.size,
+        mimetype: file.type || DEFAULT_MIME,
+        ...(options.durationMs === undefined ? {} : { duration: options.durationMs }),
+      },
       file: { ...info, url: content_uri },
     } as never)
     return event_id

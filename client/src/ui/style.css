@@ -47,6 +47,7 @@ h2 { font-size: 1rem; margin: 1rem 0 .25rem; }
 .ack-panel button { padding: .1rem .5rem; font-size: .8rem; background: transparent; color: var(--fg); border-color: var(--line); }
 label.check { display: flex; gap: .5rem; align-items: center; }
 label.check input { width: auto; }
+audio { max-width: 100%; }
 #proof-print { display: none; }
 @media print {
   body > #app { display: none; }

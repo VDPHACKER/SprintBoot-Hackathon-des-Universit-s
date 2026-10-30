@@ -1,58 +1,145 @@
-/** Libellés de l'interface. Centralisés ici pour être branchés sur l'internationalisation (tâche 12). */
+/** Libellés de l'interface: même interface qu'avant (`S.xxx`), lue dans la langue courante (voir i18n/). */
 import type { Level } from '../lib/classification.ts'
+import { has, t } from '../i18n/index.ts'
 
 export const S = {
-  appTitle: 'Messagerie souveraine',
-  loginIntro: 'Réservé aux agents enrôlés. La connexion demande votre mot de passe puis un code à usage unique.',
-  login: 'Se connecter',
-  revoked: 'Votre accès à la messagerie a été retiré ou votre session a pris fin. Si c’est une erreur, contactez votre administrateur.',
-  logout: 'Se déconnecter',
-  newRoom: 'Nouveau salon',
-  roomName: 'Nom du salon',
-  invitees: 'Agents à inviter (séparés par des virgules)',
-  create: 'Créer',
-  invitations: 'Invitations',
-  join: 'Rejoindre',
-  rooms: 'Salons',
-  noRoom: 'Choisissez ou créez un salon.',
-  messageLabel: 'Votre message',
-  send: 'Envoyer',
-  attach: 'Joindre un fichier',
-  level: 'Niveau de classification',
-  levels: { normal: 'Normal', restreinte: 'Diffusion restreinte', confidentiel: 'Confidentiel' } as Record<Level, string>,
-  noForward: 'Transfert interdit.',
-  instruction: 'Instruction de service',
-  instructionLabel: 'Instruction de service (avec accusé de lecture)',
-  readBy: (read: number, total: number) => `Lu par ${read} sur ${total}`,
-  pendingLabel: 'En attente :',
-  exportProof: 'Exporter la preuve (JSON)',
-  printProof: 'Imprimer la preuve',
-  proofTitle: 'Preuve de lecture d’une instruction de service',
-  proofInstruction: 'Empreinte SHA-256 du texte',
-  proofAgent: 'Agent',
-  proofDevice: 'Appareil',
-  proofReadAt: 'Lu le',
-  proofPending: 'Pas encore lu',
-  expiresAt: (when: string) => `Expire le ${when}.`,
-  expiresIn: (hours: number) => `Expire dans ${hours} h.`,
-  forwardTo: 'Transférer vers…',
-  forwarded: 'Message transféré.',
-  download: 'Télécharger',
-  encrypted: 'Chiffré de bout en bout',
-  notEncrypted: 'ATTENTION: ce salon n’est pas chiffré',
-  decrypting: 'Déchiffrement en cours…',
-  undecryptable: 'Message illisible (clé non reçue)',
-  starting: 'Connexion en cours…',
-  errors: {
-    INVALID_USER: 'Identifiant d’agent invalide.',
-    EMPTY_ROOM_NAME: 'Le nom du salon est obligatoire.',
-    EMPTY_FILE: 'Le fichier est vide.',
-    NOT_AUTHORITY: 'Seuls les modérateurs du salon peuvent émettre une instruction de service.',
-    FORWARD_FORBIDDEN: 'Ce niveau de classification interdit le transfert.',
-    NOT_A_MESSAGE: 'Ce message ne peut pas être transféré.',
-    INVALID_TTL: 'Durée d’expiration invalide.',
-    FILE_TOO_LARGE: 'Le fichier dépasse la taille autorisée.',
-    DOWNLOAD_FAILED: 'Le téléchargement a échoué ou le fichier a été altéré.',
-    generic: 'Une erreur est survenue. Réessayez.',
-  } as Record<string, string>,
+  get appTitle() {
+    return t('appTitle')
+  },
+  get loginIntro() {
+    return t('loginIntro')
+  },
+  get login() {
+    return t('login')
+  },
+  get revoked() {
+    return t('revoked')
+  },
+  get logout() {
+    return t('logout')
+  },
+  get newRoom() {
+    return t('newRoom')
+  },
+  get roomName() {
+    return t('roomName')
+  },
+  get invitees() {
+    return t('invitees')
+  },
+  get create() {
+    return t('create')
+  },
+  get invitations() {
+    return t('invitations')
+  },
+  get join() {
+    return t('join')
+  },
+  get rooms() {
+    return t('rooms')
+  },
+  get noRoom() {
+    return t('noRoom')
+  },
+  get messageLabel() {
+    return t('messageLabel')
+  },
+  get send() {
+    return t('send')
+  },
+  get attach() {
+    return t('attach')
+  },
+  get level() {
+    return t('level')
+  },
+  get noForward() {
+    return t('noForward')
+  },
+  get instruction() {
+    return t('instruction')
+  },
+  get instructionLabel() {
+    return t('instructionLabel')
+  },
+  get pendingLabel() {
+    return t('pendingLabel')
+  },
+  get exportProof() {
+    return t('exportProof')
+  },
+  get printProof() {
+    return t('printProof')
+  },
+  get proofTitle() {
+    return t('proofTitle')
+  },
+  get proofInstruction() {
+    return t('proofInstruction')
+  },
+  get proofAgent() {
+    return t('proofAgent')
+  },
+  get proofDevice() {
+    return t('proofDevice')
+  },
+  get proofReadAt() {
+    return t('proofReadAt')
+  },
+  get proofPending() {
+    return t('proofPending')
+  },
+  get forwardTo() {
+    return t('forwardTo')
+  },
+  get forwarded() {
+    return t('forwarded')
+  },
+  get download() {
+    return t('download')
+  },
+  get encrypted() {
+    return t('encrypted')
+  },
+  get notEncrypted() {
+    return t('notEncrypted')
+  },
+  get decrypting() {
+    return t('decrypting')
+  },
+  get undecryptable() {
+    return t('undecryptable')
+  },
+  get starting() {
+    return t('starting')
+  },
+  get language() {
+    return t('language')
+  },
+  get voiceRecord() {
+    return t('voiceRecord')
+  },
+  get voiceStop() {
+    return t('voiceStop')
+  },
+  get voiceRecording() {
+    return t('voiceRecording')
+  },
+  get voicePlay() {
+    return t('voicePlay')
+  },
+  get voiceMessage() {
+    return t('voiceMessage')
+  },
+  readBy: (read: number, total: number) => t('readBy', { read: String(read), total: String(total) }),
+  expiresAt: (when: string) => t('expiresAt', { when }),
+  expiresIn: (hours: number) => t('expiresIn', { hours: String(hours) }),
+  get levels(): Record<Level, string> {
+    return { normal: t('levels.normal'), restreinte: t('levels.restreinte'), confidentiel: t('levels.confidentiel') }
+  },
+  /** Message d'erreur pour un code; `undefined` si le code est inconnu (l'appelant retombe sur `errors.generic`). */
+  errors: new Proxy({} as Record<string, string>, {
+    get: (_target, code) => (typeof code === 'string' && has(`errors.${code}`) ? t(`errors.${code}`) : undefined),
+  }),
 }
