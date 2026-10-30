@@ -125,3 +125,31 @@ export async function adminJwt(): Promise<string> {
   if (!res.ok) throw new Error(`jeton admin: ${res.status} ${await res.text()}`)
   return ((await res.json()) as { access_token: string }).access_token
 }
+/** Requête SQL en lecture sur la base de Synapse; renvoie les lignes brutes (colonnes séparées par `|`). */
+export function sql(query: string): string[] {
+  return execFileSync('docker', [...COMPOSE, 'exec', '-T', 'postgres', 'psql', '-U', 'synapse', '-d', 'synapse', '-tA', '-c', query], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+}
+
+/** Journaux des services indiqués (ce que le serveur écrit sur sa sortie). */
+export function serviceLogs(...services: string[]): string {
+  return execFileSync('docker', [...COMPOSE, 'logs', '--no-color', ...services], { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+}
+
+/** Fichiers du magasin de médias de Synapse qui contiennent ce texte (liste vide = aucun). */
+export function mediaStoreFilesContaining(text: string): string[] {
+  const out = execFileSync('docker', [...COMPOSE, 'exec', '-T', 'synapse', 'sh', '-c', `grep -rlF -- '${text}' /data/media_store || true`], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
+  return out.split('\n').map((l) => l.trim()).filter(Boolean)
+}
+
+export function mediaStoreFileCount(): number {
+  return Number(execFileSync('docker', [...COMPOSE, 'exec', '-T', 'synapse', 'sh', '-c', 'find /data/media_store -type f | wc -l'], { cwd: ROOT, encoding: 'utf8' }).trim())
+}

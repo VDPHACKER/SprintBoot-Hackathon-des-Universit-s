@@ -57,6 +57,11 @@ oidc_providers:
         localpart_template: "{{ user.preferred_username }}"
         display_name_template: "{{ user.display_name }}"
 
+# Le serveur refuse tout contenu en clair (voir modules/no_plaintext.py).
+modules:
+  - module: no_plaintext.NoPlaintext
+    config: {}
+
 # Tous les salons sont chiffrés de bout en bout dès leur création.
 encryption_enabled_by_default_for_room_type: all
 

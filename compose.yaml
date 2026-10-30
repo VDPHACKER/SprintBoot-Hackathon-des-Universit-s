@@ -86,8 +86,10 @@ services:
       caddy: { condition: service_started }
     environment:
       SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+      PYTHONPATH: /modules
     volumes:
       - ./data/synapse:/data
+      - ./deploy/synapse/modules:/modules:ro
 
   # Crée le compte de service @svc-admin et enregistre son jeton (utilisé par le service d'administration).
   bootstrap:

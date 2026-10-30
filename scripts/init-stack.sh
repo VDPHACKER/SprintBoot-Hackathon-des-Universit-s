@@ -69,8 +69,8 @@ PY
 
 cp /templates/log.config "$DATA/log.config"
 
-# Clé de signature du serveur (créée seulement si absente).
-python -m synapse.app.homeserver --config-path "$DATA/homeserver.yaml" --generate-keys
+# Clé de signature du serveur (créée seulement si absente). Le module no_plaintext est importé pendant la lecture de la configuration.
+PYTHONPATH=/templates/modules python -m synapse.app.homeserver --config-path "$DATA/homeserver.yaml" --generate-keys
 
 # Propriétaires: chaque secret appartient à l'identifiant (uid) du conteneur qui le lit, en lecture seule.
 own() { chown "$2" "$SECRETS/$1"; chmod "${3:-0400}" "$SECRETS/$1"; }

@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/main.ts",
     "test": "vitest run --exclude \"**/*.e2e.test.ts\"",
-    "test:e2e": "vitest run e2e"
+    "test:e2e": "vitest run e2e",
+    "test:security": "vitest run e2e -t \"S.CURIT.\" "
   },
   "dependencies": {
     "fastify": "5.12.7",

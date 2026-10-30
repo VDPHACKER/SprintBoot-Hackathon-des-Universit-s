@@ -14,7 +14,7 @@ const DEMO_NAMES = ['admin.demo', 'awa.ouedraogo', 'issa.kabore', 'moussa.sawado
 /** Les autres tests créent des comptes jetables préfixés; ils ne comptent pas dans l'état de départ. */
 const isTestAccount = (u: string) => /^(kc|e2e)-/.test(u)
 
-describe('comptes de démonstration', () => {
+describe('SÉCURITÉ: comptes de démonstration (second facteur imposé)', () => {
   let admin: Record<string, string>
   beforeAll(async () => {
     admin = bearer(await clientToken('automation'))
