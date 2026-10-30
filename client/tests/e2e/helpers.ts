@@ -110,3 +110,17 @@ export async function waitForEvent(
 /** Attend un message texte déchiffré portant exactement ce corps dans le salon. */
 export const waitForMessage = (client: MatrixClient, roomId: string, body: string, timeoutMs = 30_000) =>
   waitForEvent(client, roomId, (e) => e.getContent().body === body, timeoutMs)
+/** Jeton d'administration (compte technique `automation`, rôle admin) pour appeler /admin-api. Keycloak est joint en direct (compose.test.yaml). */
+export async function adminJwt(): Promise<string> {
+  const res = await fetch('http://127.0.0.1:8180/realms/bf/protocol/openid-connect/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: 'automation',
+      client_secret: readSecret('automation_secret'),
+    }),
+  })
+  if (!res.ok) throw new Error(`jeton admin: ${res.status} ${await res.text()}`)
+  return ((await res.json()) as { access_token: string }).access_token
+}

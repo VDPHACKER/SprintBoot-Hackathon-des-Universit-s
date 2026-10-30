@@ -1,6 +1,8 @@
-import { createClient, type MatrixClient } from 'matrix-js-sdk'
+import { createClient, HttpApiEvent, type MatrixClient } from 'matrix-js-sdk'
 import { SSO_PROVIDER } from './config.ts'
 
+/** Toutes les clés de l'application dans le stockage local commencent par ce préfixe. */
+const APP_PREFIX = 'bf.'
 const STORAGE_KEY = 'bf.session'
 
 interface StoredSession {
@@ -41,6 +43,42 @@ async function completeSso(loginToken: string): Promise<StoredSession> {
   return session
 }
 
+type KeyStorage = Pick<Storage, 'length' | 'key' | 'removeItem'>
+
+function clearAppKeys(storage: KeyStorage): void {
+  const keys: string[] = []
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i)
+    if (key?.startsWith(APP_PREFIX)) keys.push(key)
+  }
+  keys.forEach((key) => storage.removeItem(key))
+}
+
+/**
+ * Révocation: dès que le serveur refuse le jeton (compte révoqué ou session fermée), le client s'arrête, efface les
+ * clés de chiffrement (IndexedDB) et le jeton local, puis appelle `onRevoked` (retour à l'écran de connexion).
+ * L'effacement local se termine même si le magasin de clés est inaccessible. Ne s'exécute qu'une fois.
+ */
+export function watchForRevocation(
+  client: Pick<MatrixClient, 'on' | 'stopClient' | 'clearStores'>,
+  onRevoked: () => void,
+  storage: KeyStorage = window.localStorage,
+): void {
+  let handled = false
+  client.on(HttpApiEvent.SessionLoggedOut, () => {
+    if (handled) return
+    handled = true
+    client.stopClient()
+    void client
+      .clearStores()
+      .catch(() => undefined)
+      .finally(() => {
+        clearAppKeys(storage)
+        onRevoked()
+      })
+  })
+}
+
 /** Restaure la session (ou termine le retour SSO), initialise le chiffrement et démarre la synchronisation. */
 export async function startSession(): Promise<MatrixClient> {
   const loginToken = new URL(window.location.href).searchParams.get('loginToken')
@@ -53,6 +91,7 @@ export async function startSession(): Promise<MatrixClient> {
     userId: session.userId,
     deviceId: session.deviceId,
   })
+  watchForRevocation(client, () => window.location.assign('/?revoked=1'))
   await client.initRustCrypto()
   await client.startClient({ initialSyncLimit: 20 })
   return client

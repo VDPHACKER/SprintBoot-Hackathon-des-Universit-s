@@ -38,6 +38,7 @@ function renderLogin(root: HTMLElement): void {
   root.replaceChildren(
     h('main', { class: 'login' },
       h('h1', {}, S.appTitle),
+      ...(new URL(window.location.href).searchParams.has('revoked') ? [h('p', { class: 'error', role: 'alert' }, S.revoked)] : []),
       h('p', {}, S.loginIntro),
       h('a', { class: 'button', href: ssoLoginUrl() }, S.login),
     ),

@@ -3,6 +3,7 @@ export const S = {
   appTitle: 'Messagerie souveraine',
   loginIntro: 'Réservé aux agents enrôlés. La connexion demande votre mot de passe puis un code à usage unique.',
   login: 'Se connecter',
+  revoked: 'Votre accès à la messagerie a été retiré ou votre session a pris fin. Si c’est une erreur, contactez votre administrateur.',
   logout: 'Se déconnecter',
   newRoom: 'Nouveau salon',
   roomName: 'Nom du salon',
