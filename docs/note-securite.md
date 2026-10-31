@@ -2,62 +2,50 @@
 
 ## 1. Hypothèses
 
-Le serveur est **hébergé par l'État mais considéré comme curieux** : il doit fonctionner sans pouvoir lire. Le navigateur
-de l'agent est de confiance tant que l'agent est enrôlé. Seules des données fictives sont utilisées.
+Le serveur est **hébergé par l'État mais considéré comme curieux** : il doit fonctionner sans pouvoir lire. Le navigateur de l'agent est de confiance tant qu'il est enrôlé.
 
 ## 2. Menaces prises en compte et protections
 
 | Menace | Protection | Vérifié par |
 |---|---|---|
-| Lecture de la base, des journaux ou du trafic par l'hébergeur | Chiffrement de bout en bout Matrix (Olm/Megolm, bibliothèque officielle, **aucune cryptographie maison**), pièces jointes et vocaux chiffrés dans le navigateur | scénario complet sans aucun marqueur en clair dans la base, les journaux ni le magasin de médias |
-| Client modifié postant du texte lisible | Module serveur `no_plaintext` : refuse (403) les types de message, les états personnalisés, le motif d'une suppression et toute « enveloppe chiffrée » qui n'a pas la forme d'un message Megolm | refus testés par l'API ; aucun `m.room.message` stocké. **Ne couvre pas** tous les chemins : voir §4 |
-| Intrus non enrôlé | Inscription fermée, invités refusés, connexion par mot de passe désactivée dans Synapse (identité uniquement par Keycloak), salons sur invitation, API d'administration non exposée | inscription 403, jeton forgé 401, adhésion sans invitation 403 |
-| Mot de passe volé | **Second facteur TOTP obligatoire** pour tous (flux d'authentification dédié, accès direct désactivé) | le mot de passe seul ne délivre aucun code d'autorisation |
-| Départ d'un agent, appareil perdu | Révocation : compte coupé dans Keycloak puis Synapse, jetons et appareils supprimés, sortie des salons, **nouvelle clé de groupe** | jeton refusé en moins de 2 s ; le message suivant utilise une autre clé ; le client ouvert se déconnecte et efface ses clés |
-| Falsification d'un accusé ou d'une pièce jointe | Empreinte SHA-256 du texte dans l'accusé ; empreinte vérifiée au déchiffrement des fichiers ; auteur et appareil authentifiés par le chiffrement de groupe | accusé à l'empreinte fausse ignoré ; fichier falsifié rejeté |
-| Fuite par transfert, relecture, vol de session | Transfert interdit (recalculé selon le niveau, un champ falsifié est ignoré) ; expiration ; CSP stricte, texte inséré sans HTML ; accès authentifié aux médias | tests unitaires et d'intégration |
+| Lecture de la base, des médias ou du trafic par l'hébergeur | Chiffrement de bout en bout Matrix (Olm/Megolm, bibliothèque officielle, **aucune cryptographie maison**) ; pièces jointes et vocaux chiffrés dans le navigateur | scénario complet : aucun marqueur en clair dans la base ni les médias (journaux contrôlés aussi, mais peu bavards : contrôle faible) |
+| Client modifié postant du texte lisible | Module serveur `no_plaintext` : refuse (403) les types de message, les états personnalisés, le motif d'une suppression et toute « enveloppe chiffrée » qui n'a pas la forme d'un message Megolm | refus testés ; aucun `m.room.message` stocké ; chemins non couverts : §4 |
+| Intrus non enrôlé | Inscription fermée, invités refusés, connexion par mot de passe désactivée dans Synapse (identité par Keycloak seul), salons sur invitation, API d'administration non exposée | inscription 403, jeton forgé 401, adhésion sans invitation 403 |
+| Mot de passe volé | **Second facteur TOTP obligatoire** ; octroi direct par mot de passe **refusé sur tous les clients**, y compris le client intégré `admin-cli` (corrigé après relecture indépendante) | le mot de passe seul ne délivre aucun code d'autorisation ni aucun jeton |
+| Départ d'un agent, appareil perdu | Révocation : Keycloak puis Synapse coupés, jetons et appareils supprimés, sortie des salons, **nouvelle clé de groupe** | jeton refusé en moins de 2 s ; clé de groupe changée ; client ouvert déconnecté |
+| Falsification d'un accusé ou d'une pièce jointe | Empreinte SHA-256 dans l'accusé ; empreinte des fichiers vérifiée ; **clé d'appareil de l'auteur authentifiée** par le chiffrement de groupe (l'identifiant d'appareil n'est que déclaré) | fausse empreinte ignorée ; fichier falsifié rejeté ; clé = clé réelle |
+| Fuite par transfert, relecture, vol de session | Transfert interdit (recalculé selon le niveau) ; expiration ; CSP stricte ; texte inséré sans HTML ; médias authentifiés ; jeton d'administration vérifié (RS256 imposé) | tests unitaires et d'intégration |
 
 ## 3. Ce que le serveur voit malgré tout (mesuré dans la base)
 
 | Visible | Détail | Réduction |
 |---|---|---|
-| Comptes et appareils | identifiants, nom affiché, appareils | aucun e-mail ni téléphone côté messagerie |
-| **Salons** | **nom, sujet, membres, droits** : événements d'état, non chiffrés par Matrix | ne pas y mettre d'information sensible |
-| Pour chaque message | expéditeur, salon, heure, taille ; tous apparaissent comme « chiffré » | le texte, le niveau et la nature d'un message ou d'un accusé ne se lisent pas ; un fichier ou un vocal se reconnaît en revanche à son dépôt séparé dans le magasin de médias, et la taille d'un événement peut en trahir le genre |
-| Connexions | adresse IP, navigateur, dernière activité | durée de conservation réglée à 7 jours (`user_ips_max_age`) |
+| Comptes et appareils | identifiants, nom affiché, appareils avec **adresse IP, navigateur et dernière activité, conservés tant que l'appareil existe** | ni e-mail ni téléphone ; historique des connexions purgé au-delà de 7 jours (réglage, non mesuré) |
+| **Salons** | **nom, sujet, membres, droits** : états non chiffrés par Matrix | ne pas y mettre d'information sensible |
+| Pour chaque message | expéditeur, salon, heure, taille ; tous apparaissent comme « chiffré » | texte, niveau et nature ne se lisent pas ; un fichier ou un vocal se reconnaît à son dépôt séparé, et la taille peut trahir le genre |
 | Fichiers | taille et heure ; **pas de nom**, type générique | contenu chiffré |
-| Présence, accusés publics, aperçus de liens, notifications externes | **0 ligne mesurée** | désactivés ou non émis |
+| Présence, accusés publics, notifications externes | 0 ligne mesurée | présence désactivée côté serveur ; notre client n'émet ni accusés publics ni notifications |
 
-« Qui parle à qui, et quand » reste donc **visible** ; seule l'équipe d'exploitation du serveur y a accès. L'identité
-(ministère, fonction, rôle, journal de connexion) vit dans Keycloak, séparée du serveur de messagerie.
+« Qui parle à qui, et quand » reste **visible** de l'équipe d'exploitation. L'identité (ministère, fonction, rôle) vit dans Keycloak, séparée du serveur de messagerie.
 
 ## 4. Limites connues
 
-- **Noms de salons et membres lisibles** par le serveur (voir §3). Un test fige cette limite.
-- Le serveur **ne peut pas vérifier** qu'un événement « chiffré » l'est vraiment ; le module ferme le cas d'un texte en clair, pas
-  celui d'un client qui dissimulerait du texte dans l'enveloppe chiffrée.
-- **Chemins que le module ne ferme pas** : texte lisible dans les champs libres d'états standards (nom, sujet, nom affiché), faux « texte chiffré » de bonne forme, fichier téléversé en clair dans le magasin de médias, données de compte et profil. Un client malveillant peut donc encore publier du clair par ces voies ; le serveur ne peut pas le savoir.
-- **Captures d'écran** : impossibles à bloquer sur le web. Le flou et le filigrane dissuadent, ils n'empêchent pas une photo.
-- **Expiration** : chaque client masque le message à l'échéance, l'expéditeur le supprime s'il est en ligne ; le message
-  chiffré reste sur le serveur sinon, et un destinataire qui l'a lu garde ses clés jusqu'au rechargement.
-- **Horloges** : les heures de lecture et d'expiration sont celles de chaque appareil, sans tiers de confiance.
+- **Noms de salons et membres lisibles** par le serveur (limite figée par un test).
+- **Chemins que le module ne ferme pas** : texte dans les champs libres d'états standards (nom, sujet, nom affiché), faux « texte chiffré » de bonne forme, fichier téléversé en clair, données de compte et profil. Le serveur ne peut pas le savoir.
+- **Jetons d'accès stockés en clair dans la base** (comportement de Synapse) : qui lit la base peut usurper une session.
+- **Captures d'écran** : impossibles à bloquer sur le web ; le flou et le filigrane dissuadent.
+- **Expiration et horloges** : masquage par chaque client, suppression par l'expéditeur s'il est en ligne (sinon le message chiffré reste) ; heures propres à chaque appareil.
 - **Vérification des appareils** absente de l'interface : un serveur malveillant pourrait ajouter un appareil à un compte.
-- Jeton et clés dans le navigateur, **non chiffrés au repos** : un accès à la machine ou une faille de script les expose.
-- Révocation : n'efface pas ce que l'agent a déjà lu ; un appareil volé garde sa copie jusqu'à sa prochaine requête.
-- **Autorité d'une instruction** : fondée sur le rôle de modérateur du salon (vérifiée par les clients), pas sur le rôle Keycloak.
-- Démonstration en HTTP local : `skip_verification` (Synapse), `sslRequired: none` (Keycloak). **Non utilisables en production.**
-- Identifiants de démonstration publics : à désactiver avant toute vraie installation (`DEMO_ACCOUNTS=false`).
-- Droits de fichiers des secrets éprouvés uniquement sous Docker Desktop (Windows) ; pas de test de charge ni d'audit externe.
+- Jeton et clés dans le navigateur, **non chiffrés au repos**.
+- **Révocation** : n'efface pas ce que l'agent a déjà lu ; un compte révoqué ne se réactive pas (nouvel identifiant à enrôler).
+- **Rôles** : seul `admin` est appliqué (API d'administration). L'autorité d'émettre une instruction de service repose sur le rôle de **modérateur du salon**, pas sur `chef_de_service`.
+- Démonstration en HTTP local : `skip_verification` (Synapse), `sslRequired: none` (Keycloak), identifiants publics : **à retirer en production** (`DEMO_ACCOUNTS=false`).
+- Secrets éprouvés sous Docker Desktop (Windows) seulement ; pas d'audit externe ni de test de charge.
 
 ## 5. Vérifications automatisées
 
-`bash scripts/test-security.sh` : **51 épreuves de sécurité** sur la pile en marche (143 tests automatisés au total). Elles
-couvrent les épreuves du jury : serveur aveugle (base, journaux, médias), révocation en conversation de groupe, intrus,
-et les fonctions d'innovation. Un test de mutation a révélé, puis fait corriger, l'acceptation d'un message en clair par le
-serveur : c'est l'origine du module `no_plaintext`.
+`bash scripts/test-security.sh` : tests d'intégration contre la pile en marche (serveur aveugle, révocation en groupe, intrus, second facteur, fonctions d'innovation). Des tests de mutation et une relecture indépendante ont révélé des défauts réels, corrigés et couverts : message en clair accepté par le serveur ; octroi direct sans second facteur par `admin-cli` ; fichier de configuration lisible de tous.
 
 ## 6. Avant une mise en service réelle
 
-Miroir interne des images et paquets (l'installation les télécharge, le fonctionnement non) ; TLS partout et retrait des deux réglages de démonstration ; `DEMO_ACCOUNTS=false` ; secrets hors du dossier de travail
-(coffre) ; console d'administration de Keycloak accessible par un réseau d'exploitation seulement ; politique de rétention
-des anciens messages chiffrés ; sauvegardes chiffrées ; revue indépendante.
+Miroir interne des images et paquets ; TLS partout ; retrait des réglages de démonstration ; secrets en coffre ; console Keycloak sur réseau d'exploitation ; rétention des anciens messages chiffrés ; sauvegardes chiffrées ; audit externe.

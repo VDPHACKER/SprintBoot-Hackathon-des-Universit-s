@@ -1,7 +1,8 @@
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { BASE, ROOT, api, registerAgent } from './helpers'
+import { BASE, COMPOSE, ROOT, api, registerAgent } from './helpers'
 
 describe('SÉCURITÉ: durcissement du serveur', () => {
   it('registrationIsClosed', async () => {
@@ -52,5 +53,16 @@ describe('SÉCURITÉ: durcissement du serveur', () => {
     expect(cfg).toMatch(/^url_preview_enabled: false$/m)
     expect(cfg).toMatch(/^federation_domain_whitelist: \[\]$/m)
     expect(cfg).toMatch(/^presence:\n\s+enabled: false$/m)
+  })
+
+  it('configAndSigningKeyAreNotReadableByOtherUsers', () => {
+    // homeserver.yaml contient le mot de passe de la base, le secret d'enregistrement et le secret OIDC.
+    const out = execFileSync('docker', [...COMPOSE, 'exec', '-T', 'synapse', 'sh', '-c', 'stat -c "%a %n" /data/homeserver.yaml /data/*.signing.key'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    })
+    const modes = out.trim().split('\n').map((l) => l.split(' '))
+    expect(modes.length).toBeGreaterThanOrEqual(2)
+    for (const [mode, file] of modes) expect(parseInt(mode, 8) & 0o007, `${file} (${mode}) lisible par tout le monde`).toBe(0)
   })
 })

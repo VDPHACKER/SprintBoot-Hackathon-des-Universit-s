@@ -60,6 +60,27 @@ describe('enroll', () => {
     expect(log).toContain('synapse.upsertUser:@awa.ouedraogo:chat.localhost')
   })
 
+  it('enrollRefusesAnAccountThatWasRevokedInsteadOfClaimingItIsActive', async () => {
+    // Relecture indépendante: ré-enrôler un nom révoqué laissait Keycloak et Synapse désactivés mais répondait « active ».
+    const d = makeDeps()
+    await enroll(d, awa)
+    await revoke(d, 'awa.ouedraogo')
+    d.log.length = 0
+    await expect(enroll(d, awa)).rejects.toThrow('REVOKED_ACCOUNT')
+    expect(d.log, 'rien ne doit être recréé ni mis à jour').toEqual([])
+    expect((await d.identity.listUsers())[0].status).toBe('revoked')
+  })
+
+  it('enrollAndRevokeRejectReservedTechnicalNames', async () => {
+    // Enrôler « svc-admin » ferait coïncider un agent avec le compte d'administration de Synapse (allow_existing_users).
+    const d = makeDeps()
+    for (const username of ['svc-admin', 'service-account-automation', 'service-account-x']) {
+      await expect(enroll(d, { ...awa, username }), username).rejects.toThrow('INVALID_USERNAME')
+      await expect(revoke(d, username), username).rejects.toThrow('INVALID_USERNAME')
+    }
+    expect(d.log).toEqual([])
+  })
+
   it('enrollCreatesIdentityThenSynapseUser', async () => {
     const d = makeDeps()
     const agent = await enroll(d, awa)
@@ -112,6 +133,16 @@ describe('endpoints', () => {
     expect((await get({ authorization: 'Bearer mauvais' })).statusCode).toBe(401)
     expect((await get({ authorization: 'Bearer jwt-agent' })).statusCode).toBe(403)
     expect((await get({ authorization: `Bearer ${TOKEN}` })).statusCode).toBe(200)
+  })
+
+  it('postAgentsAnswers409ForARevokedAccount', async () => {
+    const s = server()
+    const headers = { authorization: `Bearer ${TOKEN}` }
+    await s.inject({ method: 'POST', url: '/agents', headers, payload: awa })
+    await s.inject({ method: 'POST', url: '/agents/awa.ouedraogo/revoke', headers })
+    const again = await s.inject({ method: 'POST', url: '/agents', headers, payload: awa })
+    expect(again.statusCode).toBe(409)
+    expect(again.json()).toEqual({ error: 'REVOKED_ACCOUNT' })
   })
 
   it('healthNeedsNoToken', async () => {

@@ -43,8 +43,8 @@ serveur Synapse n'est pas modifié. Aucune contribution amont n'a été soumise.
 1. **Classification des messages** (normal, diffusion restreinte, confidentiel) *dans* le message chiffré : le serveur ne la
    voit jamais. Transfert interdit, expiration automatique (masquée même si l'expéditeur est hors ligne), flou et
    filigrane à l'écran.
-2. **Instructions de service et accusé de lecture probant** : accusé chiffré, rattaché à l'appareil réel du lecteur,
-   compté une fois par agent, lié à l'empreinte du texte ; tableau « lu / à relancer » et rapport de preuve exportable.
+2. **Instructions de service et accusé de lecture probant** : accusé chiffré, rattaché à la clé d'appareil authentifiée du lecteur,
+   compté une fois par agent, lié à l'empreinte du texte ; tableau « lu / à relancer » et rapport de preuve exportable. Aujourd'hui, émettre une instruction exige d'être modérateur du salon ; le rôle chef_de_service n'est pas encore appliqué.
 3. **Messages vocaux** chiffrés, utiles aux agents peu à l'aise à l'écrit, et interface **multilingue** (mooré partiel,
    à partir d'un dictionnaire de référence ; voir `docs/traduction-moore.md`).
 4. **Garde côté serveur** : un module refuse les contenus en clair qu'il sait reconnaître, même d'un client modifié (limites : note de sécurité, §4).

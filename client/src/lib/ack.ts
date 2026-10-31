@@ -58,13 +58,18 @@ export async function sendAck(
 
 export interface AckRecord {
   sender: string
+  /** Identifiant d'appareil DÉCLARÉ par l'expéditeur (champ hors du texte chiffré: non authentifié). */
   deviceId: string
   readAt: number
+  /** Clé d'appareil (Curve25519) de l'expéditeur, AUTHENTIFIÉE par le chiffrement de groupe. */
+  deviceKey?: string
 }
 
 export interface ReceivedAck {
   sender: string
   deviceId: string
+  /** event.getSenderKey(): clé d'appareil authentifiée de l'expéditeur. */
+  senderKey?: string
   content: Record<string, unknown>
 }
 
@@ -87,7 +92,9 @@ export function tallyAcks(
     const readAt = c.read_at
     if (typeof readAt !== 'number' || !Number.isFinite(readAt) || readAt <= 0) continue
     const previous = first.get(ack.sender)
-    if (!previous || readAt < previous.readAt) first.set(ack.sender, { sender: ack.sender, deviceId: ack.deviceId, readAt })
+    if (!previous || readAt < previous.readAt) {
+      first.set(ack.sender, { sender: ack.sender, deviceId: ack.deviceId, readAt, ...(ack.senderKey ? { deviceKey: ack.senderKey } : {}) })
+    }
   }
   return {
     read: [...first.values()].sort((a, b) => a.readAt - b.readAt),

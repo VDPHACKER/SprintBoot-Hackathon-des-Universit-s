@@ -1,4 +1,4 @@
-import { enroll, type AgentInput, type Deps } from './agents.ts'
+import { AgentError, enroll, type AgentInput, type Deps } from './agents.ts'
 
 const MIN_NUMERIQUE = 'Ministère fictif de la Transition numérique'
 const MIN_SANTE = 'Ministère fictif de la Santé'
@@ -17,5 +17,12 @@ export const DEMO_ACCOUNTS: AgentInput[] = [
 
 /** Idempotent: un compte déjà présent est mis à jour (fiche et rôle), sans toucher à ses identifiants. */
 export async function seedDemoAccounts(deps: Deps): Promise<void> {
-  for (const account of DEMO_ACCOUNTS) await enroll(deps, account)
+  for (const account of DEMO_ACCOUNTS) {
+    try {
+      await enroll(deps, account)
+    } catch (err) {
+      // Un compte de démonstration révoqué en direct reste révoqué: ne pas bloquer le démarrage du service pour autant.
+      if (!(err instanceof AgentError && err.code === 'REVOKED_ACCOUNT')) throw err
+    }
+  }
 }

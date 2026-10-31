@@ -37,6 +37,13 @@ describe('tallyAcks', () => {
     expect(t.pending).toEqual([CAROL])
   })
 
+  it('tallyKeepsTheAuthenticatedDeviceKeyOfTheFirstRead', () => {
+    const first = { ...ack(BOB, 'LAPTOP', { read_at: 2000 }), senderKey: 'CLE-PORTABLE' }
+    const later = { ...ack(BOB, 'PHONE', { read_at: 5000 }), senderKey: 'CLE-TELEPHONE' }
+    const t = tallyAcks([later, first], INSTRUCTION, [BOB])
+    expect(t.read).toEqual([{ sender: BOB, deviceId: 'LAPTOP', readAt: 2000, deviceKey: 'CLE-PORTABLE' }])
+  })
+
   it('tallyIgnoresHashMismatch', () => {
     const t = tallyAcks([ack(BOB, 'D', { content_sha256: 'autre' })], INSTRUCTION, [BOB])
     expect(t.read).toEqual([])
@@ -84,6 +91,13 @@ describe('buildProof', () => {
     })
     expect(report.read).toEqual([{ agent: BOB, deviceId: 'LAPTOP', readAt: 2000 }])
     expect(report.limits).toMatch(/horloge/i) // la limite connue est écrite dans le rapport lui-même
+  })
+
+  it('proofCarriesTheAuthenticatedDeviceKeyAndSaysTheDeviceIdIsOnlyDeclared', () => {
+    const tally = { read: [{ sender: BOB, deviceId: 'LAPTOP', readAt: 2000, deviceKey: 'CLE-PORTABLE' }], pending: [] }
+    const report = buildProof({ ...INSTRUCTION, sentAt: 1500 }, tally, () => 1)
+    expect(report.read[0]).toEqual({ agent: BOB, deviceId: 'LAPTOP', readAt: 2000, deviceKey: 'CLE-PORTABLE' })
+    expect(report.limits).toMatch(/déclaré/i)
   })
 })
 

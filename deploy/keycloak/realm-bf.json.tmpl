@@ -50,6 +50,17 @@
   ],
   "clients": [
     {
+      "clientId": "admin-cli",
+      "name": "Client intégré de Keycloak, neutralisé: aucun flux autorisé",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
       "clientId": "synapse",
       "name": "Synapse (serveur de messagerie)",
       "enabled": true,

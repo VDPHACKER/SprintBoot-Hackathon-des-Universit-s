@@ -75,11 +75,9 @@ describe('SÉCURITÉ: révocation immédiate', () => {
     // Et il ne peut rien lire de nouveau avec son ancien jeton.
     const history = await api(`/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/messages?dir=b&limit=5`, moussa.accessToken)
     expect(history.status).toBe(401)
-  })
 
-  it('revokedClientSignsItselfOutAndReturnsToLogin', async () => {
-    // Point de contrôle 2: l'application de moussa, encore ouverte, doit se déconnecter seule, sans erreur technique.
+    // Point de contrôle 2: l'application de moussa, encore ouverte, se déconnecte seule, sans erreur technique.
     await vi.waitFor(() => expect(signedOut).toBe(1), { timeout: 60_000, interval: 500 })
     expect(carol.clientRunning).toBe(false)
-  })
+  }, 120_000)
 })

@@ -23,7 +23,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   })
 
   server.setErrorHandler((err, _req, reply) => {
-    if (err instanceof AgentError) return reply.code(400).send({ error: err.code })
+    if (err instanceof AgentError) return reply.code(err.code === 'REVOKED_ACCOUNT' ? 409 : 400).send({ error: err.code })
     console.error(err)
     return reply.code(500).send({ error: 'INTERNAL' })
   })

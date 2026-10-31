@@ -1,4 +1,4 @@
-﻿# Controle automatique du dossier de candidature. Code de sortie 1 si un point manque.
+# Controle automatique du dossier de candidature. Code de sortie 1 si un point manque.
 # Usage: powershell -File scripts/check-dossier.ps1
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -18,10 +18,10 @@ foreach ($section in @('Concept', 'Architecture', 'Technologies et licences', 'N
 }
 if ($readme -match 'docker compose up') { Ok 'README: commande d installation' } else { Fail 'README: commande d installation manquante' }
 
-# 3. Longueurs: deux pages maximum (choix: 1100 mots)
+# 3. Longueurs: deux pages maximum (choix prudent: 950 mots, tableaux compris)
 foreach ($doc in @('README.md', 'docs\note-securite.md', 'docs\note-pre-projet.md')) {
   $n = WordCount $doc
-  if ($n -le 1100) { Ok "$doc : $n mots (max 1100)" } else { Fail "$doc : $n mots, depasse 1100" }
+  if ($n -le 950) { Ok "$doc : $n mots (max 950)" } else { Fail "$doc : $n mots, depasse 950" }
 }
 
 # 4. Chaque composant du tableau de la specification est cite avec licence et lien

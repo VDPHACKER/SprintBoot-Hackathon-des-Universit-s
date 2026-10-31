@@ -37,7 +37,12 @@ from string import Template
 
 # Synapse
 src = open("/templates/homeserver.yaml.tmpl", encoding="utf-8").read()
-open("/data/homeserver.yaml", "w", encoding="utf-8").write(Template(src).substitute(os.environ))
+# homeserver.yaml contient tous les secrets (base, enregistrement, OIDC): lisible par son seul propriétaire.
+synapse_config = "/data/homeserver.yaml"
+fd = os.open(synapse_config, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    f.write(Template(src).substitute(os.environ))
+os.chmod(synapse_config, 0o600)
 
 # Keycloak: les secrets sont substitués dans le gabarit; le profil utilisateur est inséré tel quel (JSON sérialisé).
 realm = Template(open("/kc-templates/realm-bf.json.tmpl", encoding="utf-8").read()).substitute(os.environ)

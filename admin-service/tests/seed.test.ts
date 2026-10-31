@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { revoke } from '../src/agents.ts'
 import { DEMO_ACCOUNTS, seedDemoAccounts } from '../src/demo.ts'
 import { buildServer } from '../src/server.ts'
 import { roleGuard } from '../src/auth.ts'
@@ -28,6 +29,17 @@ describe('seedDemoAccounts', () => {
     await seedDemoAccounts(d)
     await seedDemoAccounts(d)
     expect(await d.identity.listUsers()).toHaveLength(4)
+  })
+
+  it('seedSkipsARevokedDemoAccountInsteadOfFailingForever', async () => {
+    // Un compte de démonstration révoqué en direct ne doit pas empêcher le service de redevenir « prêt » après un redémarrage.
+    const d = makeDeps()
+    await seedDemoAccounts(d)
+    await revoke(d, 'moussa.sawadogo')
+    await expect(seedDemoAccounts(d)).resolves.toBeUndefined()
+    const byName = new Map((await d.identity.listUsers()).map((u) => [u.username, u.status]))
+    expect(byName.get('moussa.sawadogo')).toBe('revoked')
+    expect(byName.get('awa.ouedraogo')).toBe('active')
   })
 
   it('demoAccountsAreClearlyFictionalAndSpanTwoMinistries', () => {

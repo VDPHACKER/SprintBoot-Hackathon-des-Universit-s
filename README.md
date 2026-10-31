@@ -69,11 +69,21 @@ d'authentification, ou obtenir le code courant avec `node scripts/totp-demo.mjs 
 publics), servir le client et Keycloak en **HTTPS** (le chiffrement du navigateur l'exige hors `localhost`), et retirer
 `skip_verification` de `deploy/synapse/homeserver.yaml.tmpl` (réglage réservé à la démonstration en HTTP).
 
+## Administration : enrôler et révoquer
+
+```ash
+node scripts/admin.mjs list
+node scripts/admin.mjs enroll nouvel.agent "Nom Prénom" "Ministère" "Fonction" agent
+node scripts/admin.mjs revoke moussa.sawadogo    # coupe l'accès sur tous ses appareils, tout de suite
+```
+
+Un compte révoqué ne se réactive pas : enrôler un nouvel identifiant.
+
 ## Tests
 
 ```bash
 docker compose -f compose.yaml -f compose.test.yaml up -d --wait
-bash scripts/test-security.sh      # 51 épreuves de sécurité automatisées
+bash scripts/test-security.sh      # 59 tests d'intégration (garanties de sécurité et fonctions), 110 tests unitaires en plus
 ```
 
 ## Limites
@@ -81,8 +91,13 @@ bash scripts/test-security.sh      # 51 épreuves de sécurité automatisées
 - Le **nom des salons, les membres et les droits** sont visibles du serveur (non chiffrés par Matrix), ainsi que « qui parle
   dans quel salon, quand, et la taille ». Détail et mesures dans [`docs/note-securite.md`](docs/note-securite.md).
 - Le flou des messages confidentiels **dissuade**, il ne bloque pas les captures d'écran (impossible sur le web).
+- Le rôle chef_de_service n'est pas appliqué : seule l'API d'administration exige un rôle (dmin) ; émettre une instruction de service exige d'être modérateur du salon.
 - Pas d'écran de vérification des appareils ; le jeton et les clés restent dans le navigateur, non chiffrés au repos.
 - Heures de lecture et d'expiration : horloge de chaque appareil.
 - L'**installation** télécharge des images Docker et des paquets (construction du client) : le fonctionnement n'en dépend pas, mais un déploiement isolé doit prévoir un miroir interne.
 - La configuration livrée est celle d'une machine locale (localhost, uth.localhost) : un autre nom d'hôte demande de modifier SERVER_NAME, l'adresse publique, les redirections Keycloak et l'émetteur dans deploy/.
 - Mooré partiel, dioula absent ; annuaire disponible côté serveur mais pas dans l'interface ; ni mode dégradé, ni archivage légal.
+
+## Transparence
+
+Ce prototype a été développé avec l'aide d'un assistant IA, ce que le règlement du sprint autorise ; les commits en portent la mention. L'historique Git commence le 30 octobre 2026.

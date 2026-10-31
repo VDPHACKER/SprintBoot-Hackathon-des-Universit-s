@@ -53,15 +53,19 @@ describe('SÉCURITÉ: accusé de lecture probant', () => {
     const acks = events.map((e) => ({
       sender: e.getSender()!,
       deviceId: String(e.getWireContent().device_id),
+      senderKey: e.getSenderKey() ?? undefined,
       content: e.getContent() as { instruction_event_id: string; content_sha256: string; read_at: number },
     }))
     const tally = tallyAcks(acks, { eventId: instructionId, sha256: await contentSha256(body) }, [b.userId, c.userId])
 
     expect(tally.read.map((r) => r.sender).sort()).toEqual([b.userId, c.userId].sort())
     expect(tally.pending).toEqual([])
-    // Chaque accusé est rattaché à l'appareil réel de son auteur (clé authentifiée par le chiffrement de groupe).
+    // L'identifiant d'appareil est seulement DÉCLARÉ par l'expéditeur; ce qui est authentifié par le chiffrement de groupe,
+    // c'est la clé d'appareil: elle doit être celle de l'appareil réel de l'auteur.
     expect(tally.read.find((r) => r.sender === b.userId)?.deviceId).toBe(b.deviceId)
     expect(tally.read.find((r) => r.sender === c.userId)?.deviceId).toBe(c.deviceId)
+    expect(tally.read.find((r) => r.sender === b.userId)?.deviceKey).toBe((await bob.getCrypto()!.getOwnDeviceKeys()).curve25519)
+    expect(tally.read.find((r) => r.sender === c.userId)?.deviceKey).toBe((await carol.getCrypto()!.getOwnDeviceKeys()).curve25519)
     for (const e of events) expect(e.getClaimedEd25519Key(), 'clé d’appareil de l’expéditeur').toBeTruthy()
   })
 
@@ -74,6 +78,7 @@ describe('SÉCURITÉ: accusé de lecture probant', () => {
     const acks = events.map((e) => ({
       sender: e.getSender()!,
       deviceId: String(e.getWireContent().device_id),
+      senderKey: e.getSenderKey() ?? undefined,
       content: e.getContent() as { instruction_event_id: string; content_sha256: string; read_at: number },
     }))
     expect(tallyAcks(acks, { eventId: other, sha256: await contentSha256(forgedFor) }, [b.userId, c.userId]).read).toEqual([])

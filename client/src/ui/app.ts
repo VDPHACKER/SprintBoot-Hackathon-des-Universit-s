@@ -109,6 +109,8 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   const redactionScheduled = new Set<string>()
   const hashes = new Map<string, string>() // empreinte du texte de chaque instruction
   const acked = new Set<string>() // instructions déjà accusées dans cette session
+  const objectUrls: string[] = [] // adresses temporaires des messages vocaux écoutés
+  window.addEventListener('pagehide', () => objectUrls.forEach((url) => URL.revokeObjectURL(url)))
   const proofPrint = h('section', { id: 'proof-print' })
   document.body.append(proofPrint)
   let expiryTimer: ReturnType<typeof setTimeout> | undefined
@@ -163,7 +165,9 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
         error.textContent = ''
         downloadFile(client, event)
           .then((blob) => {
-            const audio = h('audio', { controls: true, src: URL.createObjectURL(blob) })
+            const url = URL.createObjectURL(blob)
+            objectUrls.push(url)
+            const audio = h('audio', { controls: true, src: url })
             holder.replaceChildren(audio, error)
             void audio.play().catch(() => undefined)
           })
@@ -253,7 +257,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     const members = room.getJoinedMembers().map((m) => m.userId).filter((u) => u !== client.getUserId())
     const acks = all
       .filter((e) => e.getType() === ACK_TYPE)
-      .map((e) => ({ sender: e.getSender() ?? '', deviceId: String(e.getWireContent().device_id ?? ''), content: e.getContent() as Record<string, unknown> }))
+      .map((e) => ({ sender: e.getSender() ?? '', deviceId: String(e.getWireContent().device_id ?? ''), senderKey: e.getSenderKey() ?? undefined, content: e.getContent() as Record<string, unknown> }))
     const tally = tallyAcks(acks, { eventId: id, sha256 }, members)
     const nameOf = (user: string) => room.getMember(user)?.name ?? user
     const report = buildProof({ eventId: id, sha256, sentAt: event.getTs() }, tally)
@@ -294,10 +298,13 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
 
     // Rien de visible n'a changé: on ne touche pas au DOM. Sinon un message vocal en cours de lecture serait coupé
     // à chaque événement de synchronisation, et une sélection de texte perdue.
+    // Le focus de la fenêtre ne change l'affichage que pour les messages confidentiels (flou) et les instructions (accusé):
+    // ailleurs, reconstruire la liste couperait inutilement un message vocal en cours de lecture.
+    const shieldMatters = shown.some((e) => readClassification(e.getContent()).level === 'confidentiel' || e.getContent()[INSTRUCTION_KEY] === true)
     const signature = JSON.stringify([
       room.roomId,
       shown.map((e) => [e.getId(), e.getType(), e.isDecryptionFailure()]),
-      shield.windowFocused && shield.tabVisible,
+      shieldMatters ? shield.windowFocused && shield.tabVisible : null,
       hashes.size,
       room.getJoinedMemberCount(),
       client.getRooms().filter((r) => r.getMyMembership() === 'join').map((r) => r.roomId),
@@ -369,7 +376,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
       }
     }
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault()
         void send()
       }
@@ -401,6 +408,9 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
       void finished.stop()
         .then((blob) => sendVoice(client, roomId, blob, Date.now() - startedAt))
         .catch((e) => { error.textContent = errorText(e) })
+    })
+    window.addEventListener('pagehide', () => {
+      if (recording) void recording.stop().catch(() => undefined) // relâche le micro; l'enregistrement est abandonné
     })
     const form = h('form', { class: 'composer', submit: (e) => { e.preventDefault(); void send() } },
       h('label', { for: `message-${roomId}` }, S.messageLabel),
