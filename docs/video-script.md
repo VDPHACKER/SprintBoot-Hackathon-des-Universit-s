@@ -3,6 +3,21 @@
 Objectif : montrer un échange chiffré entre deux agents, la révocation d'un agent et la fonctionnalité innovante principale.
 Préparer deux fenêtres de navigateur distinctes (ou un profil privé) et un terminal. Installation faite avant l'enregistrement.
 
+## Script d'aide au tournage
+
+`powershell -File scripts\demo-video.ps1` vérifie que tout est prêt (pile saine, comptes actifs, codes à usage unique).
+`powershell -File scripts\demo-video.ps1 -Etape tout` déroule les moments « terminal » avec des pauses ; chaque étape existe aussi
+seule : `-Etape code -Arg awa.ouedraogo`, `-Etape serveur-aveugle -Arg "<phrase écrite dans le navigateur>"`, `-Etape en-clair`
+(un client modifié essaie de déposer du texte lisible : refusé), `-Etape revoquer -Arg moussa.sawadogo`. Prérequis de l'étape
+`en-clair` : `docker compose -f compose.yaml -f compose.test.yaml up -d --wait`.
+
+Pièges à éviter à l'enregistrement :
+- **Ne cherchez pas le nom du salon** dans la base : il y est lisible (limite annoncée dans la note de sécurité). Cherchez le
+  **texte d'un message**.
+- Révoquer un compte de démonstration le coupe jusqu'à une réinstallation (`bash scripts/clean-install-check.sh --yes`, 2 à
+  4 minutes) : répéter la révocation sur un compte jetable (`node scripts/admin.mjs enroll ...`), tourner avec le vrai compte.
+- Le code à usage unique n'est valable que 30 secondes : le demander juste avant de le saisir.
+
 | Temps | À l'écran | À dire |
 |---|---|---|
 | 0:00 – 0:15 | Terminal : `docker compose up -d --wait`, puis `docker compose ps` (tout est « healthy ») | Une seule commande installe tout, sans service tiers. |
