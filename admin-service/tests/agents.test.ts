@@ -40,6 +40,26 @@ describe('enroll', () => {
     expect(d.log).toEqual([])
   })
 
+  it('anEnrolmentInterruptedAfterTheIdentityStepCanSimplyBeRetried', async () => {
+    // Keycloak réussit, Synapse échoue: l'agent est à moitié créé. Rejouer la même demande doit terminer le travail.
+    const log: string[] = []
+    let synapseUp = false
+    const identity = new FakeIdentity(log)
+    const synapse = {
+      upsertUser: async (mxid: string) => {
+        if (!synapseUp) throw new Error('Synapse indisponible')
+        log.push(`synapse.upsertUser:${mxid}`)
+      },
+      deactivate: async () => undefined,
+    }
+    const d = { identity, synapse, domain: 'chat.localhost' }
+    await expect(enroll(d, awa)).rejects.toThrow('Synapse indisponible')
+    synapseUp = true
+    await expect(enroll(d, awa)).resolves.toMatchObject({ username: 'awa.ouedraogo', status: 'active' })
+    expect(await identity.listUsers()).toHaveLength(1)
+    expect(log).toContain('synapse.upsertUser:@awa.ouedraogo:chat.localhost')
+  })
+
   it('enrollCreatesIdentityThenSynapseUser', async () => {
     const d = makeDeps()
     const agent = await enroll(d, awa)

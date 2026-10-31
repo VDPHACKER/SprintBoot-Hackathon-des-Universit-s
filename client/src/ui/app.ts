@@ -1,5 +1,5 @@
 import { ClientEvent, MatrixEventEvent, RoomEvent, type MatrixClient, type MatrixEvent, type Room } from 'matrix-js-sdk'
-import { ACK_TYPE, INSTRUCTION_KEY, contentSha256, isInstructionAuthority, sendAck, sendInstruction, tallyAcks } from '../lib/ack.ts'
+import { ACK_TYPE, INSTRUCTION_KEY, ackMarkerKey, contentSha256, isInstructionAuthority, sendAck, sendInstruction, tallyAcks } from '../lib/ack.ts'
 import { LEVELS, forwardMessage, policyFor, readClassification, sendClassified, type Level } from '../lib/classification.ts'
 import { scheduleExpiry, visibleEvents } from '../lib/expiry.ts'
 import { buildProof, type ProofReport } from '../lib/proof.ts'
@@ -218,7 +218,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   const maybeAck = (event: MatrixEvent, room: Room) => {
     const id = event.getId()
     if (!id || event.getSender() === client.getUserId() || !shield.windowFocused || !shield.tabVisible) return
-    const key = `bf.ack.${id}`
+    const key = ackMarkerKey(client.getUserId() ?? '', id)
     if (acked.has(id) || store(key)) return
     acked.add(id)
     store(key, '1')

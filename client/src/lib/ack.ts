@@ -8,6 +8,12 @@ export const ACK_TYPE = 'bf.gov.ack'
 /** Niveau de pouvoir minimal dans le salon (modérateur) pour qu'un message compte comme instruction de service. */
 export const INSTRUCTION_MIN_POWER = 50
 
+/**
+ * Clé de mémorisation « accusé déjà envoyé », PAR UTILISATEUR: deux agents qui se succèdent sur le même navigateur ne
+ * doivent pas partager cette mémoire (le second n'enverrait jamais son accusé). Sous le préfixe f.: effacée à la déconnexion.
+ */
+export const ackMarkerKey = (userId: string, eventId: string): string => `bf.ack.${userId}.${eventId}`
+
 /** Empreinte SHA-256 (hexadécimale) du texte en UTF-8. Hachage standard du navigateur: ce n'est pas du chiffrement. */
 export async function contentSha256(body: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body))

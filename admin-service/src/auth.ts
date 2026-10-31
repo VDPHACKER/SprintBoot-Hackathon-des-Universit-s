@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { createRemoteJWKSet, jwtVerify } from 'jose'
+import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose'
 import type { Role } from './agents.ts'
 
 export interface TokenClaims {
@@ -25,10 +25,14 @@ export function roleGuard(verify: TokenVerifier, role: Role): Guard {
 }
 
 /** Valide la signature (JWKS du realm) et l'émetteur d'un JWT Keycloak, puis lit `realm_access.roles`. */
-export function joseVerifier(jwksUrl: string, issuer: string): TokenVerifier {
-  const jwks = createRemoteJWKSet(new URL(jwksUrl))
+export function joseVerifier(
+  jwksUrl: string,
+  issuer: string,
+  jwks: JWTVerifyGetKey = createRemoteJWKSet(new URL(jwksUrl)),
+): TokenVerifier {
   return async (token) => {
-    const { payload } = await jwtVerify(token, jwks, { issuer })
+    // Algorithme imposé (celui de Keycloak): on ne laisse pas le jeton choisir comment il est vérifié.
+    const { payload } = await jwtVerify(token, jwks, { issuer, algorithms: ['RS256'] })
     const realmAccess = payload.realm_access as { roles?: string[] } | undefined
     return { roles: realmAccess?.roles ?? [] }
   }

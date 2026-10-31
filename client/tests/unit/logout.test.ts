@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { HttpApiEvent } from 'matrix-js-sdk'
 import { describe, expect, it, vi } from 'vitest'
-import { watchForRevocation } from '../../src/matrix/session.ts'
+import { logout, watchForRevocation } from '../../src/matrix/session.ts'
 
 function fakeClient(clearStores: () => Promise<void> = async () => undefined) {
   const emitter = new EventEmitter()
@@ -63,5 +63,39 @@ describe('watchForRevocation', () => {
     await flush()
     expect(storage.data.size).toBe(0) // le jeton local est effacé quoi qu'il arrive
     expect(onRevoked).toHaveBeenCalledOnce()
+  })
+})
+describe('logout', () => {
+  const signedInClient = () => ({ stopClient: vi.fn(), logout: vi.fn(async () => ({})), clearStores: vi.fn(async () => undefined) })
+
+  it('logoutErasesEveryAppKeyButKeepsTheLanguage', async () => {
+    // Un second agent qui se connecte sur ce navigateur ne doit hériter de rien du premier (accusés déjà envoyés compris).
+    const client = signedInClient()
+    const storage = fakeStorage({
+      'bf.session': 'jeton',
+      'bf.ack.@awa:chat.localhost.$instruction': '1',
+      'bf.locale': 'mos',
+      'sans-rapport': 'garde',
+    })
+    await logout(client as never, storage)
+    expect(client.stopClient).toHaveBeenCalledOnce()
+    expect(client.clearStores).toHaveBeenCalledOnce()
+    expect([...storage.data.keys()].sort()).toEqual(['bf.locale', 'sans-rapport'])
+  })
+
+  it('logoutStillWipesLocalKeysWhenTheServerCannotBeReached', async () => {
+    const client = { stopClient: vi.fn(), logout: vi.fn(async () => { throw new Error('hors ligne') }), clearStores: vi.fn(async () => { throw new Error('IndexedDB') }) }
+    const storage = fakeStorage({ 'bf.session': 'jeton', 'bf.ack.x': '1' })
+    await logout(client as never, storage)
+    expect(storage.data.size).toBe(0)
+  })
+
+  it('revocationKeepsTheLanguageChoiceToo', async () => {
+    const client = fakeClient()
+    const storage = fakeStorage({ 'bf.session': 'jeton', 'bf.locale': 'mos' })
+    watchForRevocation(client as never, vi.fn(), storage)
+    client.emit(HttpApiEvent.SessionLoggedOut, {})
+    await flush()
+    expect([...storage.data.keys()]).toEqual(['bf.locale'])
   })
 })

@@ -218,3 +218,58 @@ describe('SÉCURITÉ: le serveur refuse tout contenu en clair', () => {
     expect(state.status).toBe(200)
   })
 })
+describe('SÉCURITÉ: le serveur refuse les chemins détournés vers le clair', () => {
+  // Relecture indépendante: refuser les types de message ne suffit pas, un client modifié peut essayer un état
+  // personnalisé, le motif d'une suppression ou une « enveloppe chiffrée » qui contient du texte.
+  let owner: Awaited<ReturnType<typeof registerAgent>>
+  let client: MatrixClient
+  let roomId: string
+  const room = () => encodeURIComponent(roomId)
+  const put = (path: string, body: unknown) => api(`/_matrix/client/v3/rooms/${room()}/${path}`, owner.accessToken, { method: 'PUT', body: JSON.stringify(body) })
+  const megolm = { algorithm: 'm.megolm.v1.aes-sha2', sender_key: 'cle', session_id: 'session', ciphertext: 'AwgAEnAEnAEnAEnAEnAEnA' }
+
+  beforeAll(async () => {
+    owner = await registerAgent('rogue')
+    client = await startTestClient(owner)
+    roomId = await createEncryptedRoom(client, { name: 'Détours', invite: [] })
+  })
+
+  afterAll(() => client?.stopClient())
+
+  it('serverRefusesCustomStateEventTypes', async () => {
+    const marker = `ETAT-${tag()}`
+    expect((await put(`state/com.example.secret/cle`, { texte: marker })).status).toBe(403)
+    expect(dumpDb()).not.toContain(marker)
+  })
+
+  it('serverRefusesARedactionCarryingAReason', async () => {
+    const sent = await put(`send/m.room.encrypted/txn-${tag()}`, { ...megolm, device_id: owner.deviceId })
+    const eventId = ((await sent.json()) as { event_id: string }).event_id
+    const marker = `MOTIF-${tag()}`
+    const refused = await put(`redact/${encodeURIComponent(eventId)}/txn-${tag()}`, { reason: marker })
+    expect(refused.status).toBe(403)
+    expect(dumpDb()).not.toContain(marker)
+    const accepted = await put(`redact/${encodeURIComponent(eventId)}/txn-${tag()}`, {})
+    expect(accepted.status, 'une suppression sans motif reste possible (c’est ce qu’envoie le client)').toBe(200)
+  })
+
+  it('serverRefusesAnEncryptedEnvelopeThatCarriesPlaintext', async () => {
+    const marker = `ENVELOPPE-${tag()}`
+    const forged: Array<[string, unknown]> = [
+      ['champ body à côté du chiffré', { ...megolm, body: marker }],
+      ['champ msgtype', { ...megolm, msgtype: 'm.text' }],
+      ['texte lisible à la place du chiffré', { ...megolm, ciphertext: `ceci est du texte lisible ${marker}` }],
+      ['algorithme inconnu', { ...megolm, algorithm: 'com.example.clair' }],
+      ['chiffré absent', { algorithm: megolm.algorithm }],
+    ]
+    for (const [label, content] of forged) {
+      expect((await put(`send/m.room.encrypted/txn-${tag()}`, content)).status, label).toBe(403)
+    }
+    expect(dumpDb()).not.toContain(marker)
+  })
+
+  it('theStateFieldsMatrixLeavesInTheClearStayAcceptedByDesign', async () => {
+    // Nom, sujet et noms affichés sont des champs d'état Matrix: lisibles du serveur. Limite documentée, pas masquée.
+    expect((await put('state/m.room.topic', { topic: 'sujet lisible du serveur' })).status).toBe(200)
+  })
+})

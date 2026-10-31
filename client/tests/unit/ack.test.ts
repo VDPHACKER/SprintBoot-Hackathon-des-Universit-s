@@ -4,6 +4,7 @@ import {
   ACK_TYPE,
   INSTRUCTION_KEY,
   contentSha256,
+  ackMarkerKey,
   isInstructionAuthority,
   sendAck,
   sendInstruction,
@@ -130,5 +131,14 @@ describe('isInstructionAuthority', () => {
     expect(isInstructionAuthority(49)).toBe(false)
     expect(isInstructionAuthority(0)).toBe(false)
     expect(isInstructionAuthority(undefined)).toBe(false)
+  })
+})
+describe('ackMarkerKey', () => {
+  it('isPerUserSoASecondAgentOnTheSameBrowserStillAcknowledges', () => {
+    const a = ackMarkerKey('@awa:chat.localhost', '$instr:chat.localhost')
+    const b = ackMarkerKey('@moussa:chat.localhost', '$instr:chat.localhost')
+    expect(a).not.toBe(b)
+    expect(a.startsWith('bf.')).toBe(true) // sous le préfixe de l'application: effacé à la déconnexion
+    expect(ackMarkerKey('@awa:chat.localhost', '$instr:chat.localhost')).toBe(a) // stable pour un même couple
   })
 })

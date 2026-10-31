@@ -29,7 +29,7 @@ Navigateur (client web, chiffrement Rust/WebAssembly)
 
 Protocole de chiffrement : **Matrix** (Olm pour les échanges directs, Megolm pour les groupes), par la bibliothèque
 officielle `matrix-sdk-crypto` (Rust). **Aucune cryptographie n'est écrite par l'équipe.** Un module serveur refuse en plus
-tout événement non chiffré : même un client modifié ne peut pas déposer de texte lisible.
+les contenus en clair qu'il sait reconnaître (types de message, états personnalisés, enveloppe chiffrée mal formée). Il ne peut pas vérifier qu'un texte « chiffré » l'est vraiment : voir les limites.
 
 ## Technologies et licences
 
@@ -84,4 +84,5 @@ bash scripts/test-security.sh      # 51 épreuves de sécurité automatisées
 - Pas d'écran de vérification des appareils ; le jeton et les clés restent dans le navigateur, non chiffrés au repos.
 - Heures de lecture et d'expiration : horloge de chaque appareil.
 - L'**installation** télécharge des images Docker et des paquets (construction du client) : le fonctionnement n'en dépend pas, mais un déploiement isolé doit prévoir un miroir interne.
+- La configuration livrée est celle d'une machine locale (localhost, uth.localhost) : un autre nom d'hôte demande de modifier SERVER_NAME, l'adresse publique, les redirections Keycloak et l'émetteur dans deploy/.
 - Mooré partiel, dioula absent ; annuaire disponible côté serveur mais pas dans l'interface ; ni mode dégradé, ni archivage légal.

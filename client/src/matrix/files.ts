@@ -64,7 +64,9 @@ export async function downloadFile(
   const attachment = new EncryptedAttachment(new Uint8Array(await res.arrayBuffer()), JSON.stringify(info))
   try {
     const plain = Attachment.decrypt(attachment)
-    const mimetype = typeof content.info?.mimetype === 'string' && MIME.test(content.info.mimetype) ? content.info.mimetype : DEFAULT_MIME
+    // Le type est contrôlé SANS ses paramètres (« audio/webm;codecs=opus » est ce qu'annonce MediaRecorder) mais conservé avec eux.
+    const declared = content.info?.mimetype
+    const mimetype = typeof declared === 'string' && declared.length <= 200 && MIME.test(declared.split(';')[0].trim()) ? declared : DEFAULT_MIME
     return new Blob([plain as Uint8Array<ArrayBuffer>], { type: mimetype })
   } finally {
     attachment.free()

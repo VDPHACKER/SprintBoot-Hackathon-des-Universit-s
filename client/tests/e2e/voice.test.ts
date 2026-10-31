@@ -22,7 +22,7 @@ describe('SÉCURITÉ: messages vocaux chiffrés', () => {
     ;[alice, bob] = await Promise.all([startTestClient(a), startTestClient(b)])
     roomId = await createEncryptedRoom(alice, { name: 'Vocal', invite: [b.userId] })
     await bob.joinRoom(roomId)
-    await sendVoice(alice, roomId, new Blob([audio], { type: 'audio/webm' }), 4200)
+    await sendVoice(alice, roomId, new Blob([audio], { type: 'audio/webm;codecs=opus' }), 4200)
   })
 
   afterAll(() => {
@@ -32,9 +32,11 @@ describe('SÉCURITÉ: messages vocaux chiffrés', () => {
 
   it('voiceMessageArrivesIntactWithItsDuration', async () => {
     const event = await waitForEvent(bob, roomId, (e) => e.getContent().msgtype === 'm.audio')
-    expect(event.getContent().info).toMatchObject({ duration: 4200, mimetype: 'audio/webm', size: audio.length })
+    expect(event.getContent().info).toMatchObject({ duration: 4200, mimetype: 'audio/webm;codecs=opus', size: audio.length })
     const blob = await downloadFile(bob, event)
-    expect(blob.type).toBe('audio/webm')
+    // MediaRecorder annonce « audio/webm;codecs=opus »: le paramètre ne doit pas faire retomber le type en binaire générique,
+    // sinon le lecteur audio du navigateur ne reconnaît plus le fichier.
+    expect(blob.type).toBe('audio/webm;codecs=opus')
     expect(Buffer.from(await blob.arrayBuffer()).equals(Buffer.from(audio))).toBe(true)
   })
 

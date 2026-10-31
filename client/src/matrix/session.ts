@@ -45,11 +45,15 @@ async function completeSso(loginToken: string): Promise<StoredSession> {
 
 type KeyStorage = Pick<Storage, 'length' | 'key' | 'removeItem'>
 
-function clearAppKeys(storage: KeyStorage): void {
+/** Préférences qui survivent à une déconnexion ou une révocation (ce n'est pas une donnée de session). */
+const KEEP_ON_SIGN_OUT: readonly string[] = ['bf.locale']
+
+/** Efface les clés de l'application du stockage local, sauf celles de keep. */
+export function clearAppKeys(storage: KeyStorage, keep: readonly string[] = []): void {
   const keys: string[] = []
   for (let i = 0; i < storage.length; i++) {
     const key = storage.key(i)
-    if (key?.startsWith(APP_PREFIX)) keys.push(key)
+    if (key?.startsWith(APP_PREFIX) && !keep.includes(key)) keys.push(key)
   }
   keys.forEach((key) => storage.removeItem(key))
 }
@@ -73,7 +77,7 @@ export function watchForRevocation(
       .clearStores()
       .catch(() => undefined)
       .finally(() => {
-        clearAppKeys(storage)
+        clearAppKeys(storage, KEEP_ON_SIGN_OUT)
         onRevoked()
       })
   })
@@ -98,9 +102,13 @@ export async function startSession(): Promise<MatrixClient> {
 }
 
 /** Ferme la session côté serveur et efface les données locales (clés de chiffrement comprises). */
-export async function logout(client: MatrixClient): Promise<void> {
+export async function logout(
+  client: Pick<MatrixClient, 'stopClient' | 'logout' | 'clearStores'>,
+  storage: KeyStorage = window.localStorage,
+): Promise<void> {
   client.stopClient()
   await client.logout(true).catch(() => undefined)
   await client.clearStores().catch(() => undefined)
-  window.localStorage.removeItem(STORAGE_KEY)
+  // Tout ce que l'agent a laissé (jeton, accusés déjà envoyés...) part avec lui; seule la langue choisie reste.
+  clearAppKeys(storage, KEEP_ON_SIGN_OUT)
 }

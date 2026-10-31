@@ -47,7 +47,7 @@ serveur Synapse n'est pas modifié. Aucune contribution amont n'a été soumise.
    compté une fois par agent, lié à l'empreinte du texte ; tableau « lu / à relancer » et rapport de preuve exportable.
 3. **Messages vocaux** chiffrés, utiles aux agents peu à l'aise à l'écrit, et interface **multilingue** (mooré partiel,
    à partir d'un dictionnaire de référence ; voir `docs/traduction-moore.md`).
-4. **Garantie serveur** : un module refuse tout événement non chiffré, même d'un client modifié.
+4. **Garde côté serveur** : un module refuse les contenus en clair qu'il sait reconnaître, même d'un client modifié (limites : note de sécurité, §4).
 
 ## Pertinence pour l'administration burkinabè
 
