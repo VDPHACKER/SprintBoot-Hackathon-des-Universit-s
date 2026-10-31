@@ -79,6 +79,10 @@ node scripts/admin.mjs revoke moussa.sawadogo    # coupe l'accès sur tous ses a
 
 Un compte révoqué ne se réactive pas : enrôler un nouvel identifiant.
 
+## Pièces du dossier
+
+Les PDF des notes sont dans `dossier/` ; `cd scripts/pdf && npm ci && node build-pdf.mjs` les régénère et **compte leurs pages réelles** (limite : 2 pages). À relancer après toute modification des notes.
+
 ## Tests
 
 ```bash

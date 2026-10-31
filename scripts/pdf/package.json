@@ -1,0 +1,10 @@
+{
+  "name": "messagerie-souveraine-pdf",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "description": "Génère les PDF du dossier (notes, README) et compte leurs pages réelles",
+  "dependencies": {
+    "marked": "18.1.2"
+  }
+}

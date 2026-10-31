@@ -32,7 +32,7 @@ foreach ($component in @('Synapse', 'matrix-js-sdk', 'matrix-sdk-crypto-wasm', '
 }
 
 # 5. Pieces du dossier presentes
-foreach ($file in @('docs\note-securite.md', 'docs\note-pre-projet.md', 'docs\fiche-equipe.md', 'docs\video-script.md', 'docs\traduction-moore.md', 'compose.yaml', 'deploy\keycloak\demo-users.json')) {
+foreach ($file in @('dossier\2-note-pre-projet.pdf', 'dossier\3-note-securite.pdf', 'docs\note-securite.md', 'docs\note-pre-projet.md', 'docs\fiche-equipe.md', 'docs\video-script.md', 'docs\traduction-moore.md', 'compose.yaml', 'deploy\keycloak\demo-users.json')) {
   if (Test-Path $file) { Ok "present: $file" } else { Fail "manquant: $file" }
 }
 

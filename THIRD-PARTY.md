@@ -17,3 +17,4 @@ Chaque technologie utilisée est citée ici avec sa licence, la version épingl�
 | matrix-sdk-crypto-wasm (chiffrement de bout en bout, Rust/WebAssembly) | 18.9.0 | Apache-2.0 | https://github.com/matrix-org/matrix-sdk-crypto-wasm |
 | Vite (outil de construction) | 8.3.5 | MIT | https://github.com/vitejs/vite |
 | Dictionnaire mooré-français-anglais (Niggli, éd. ; SIL International, 2016), source lexicale citée, non redistribuée | n/a | © SIL International (pas de licence de réutilisation énoncée) | https://www.webonary.org/moore/ |
+| marked (outil de génération des PDF du dossier, non livré avec l'application) | 18.1.2 | MIT | https://github.com/markedjs/marked |
