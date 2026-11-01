@@ -56,7 +56,7 @@ d'une instruction ; langues nationales ; installation par une équipe informatiq
 
 ## Répartition des rôles
 
-*À compléter par l'équipe (noms et rôles réels des membres). Cette partie n'est pas remplie à la place de l'équipe.*
+Équipe **Burkina'novation**. *Noms et rôles réels des membres à compléter par l'équipe avant le dépôt (non inventés).*
 
 | Membre | Rôle |
 |---|---|

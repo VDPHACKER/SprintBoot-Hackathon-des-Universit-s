@@ -3,7 +3,7 @@
 > **À remplir par l'équipe.** Ces informations ne sont ni connues ni inventées par l'outil de développement.
 > Joindre l'attestation d'inscription de chaque membre pour l'année 2026-2027.
 
-- **Nom de l'équipe :**
+- **Nom de l'équipe :** Burkina'novation
 - **Université / établissement :**
 - **Contact de l'équipe (e-mail, téléphone) :**
 
