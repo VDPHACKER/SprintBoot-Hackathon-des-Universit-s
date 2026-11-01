@@ -44,6 +44,20 @@ describe('SÉCURITÉ: seuls les comptes enrôlés obtiennent un compte de messag
     }
   })
 
+  it('theLogoutAddressUsedByTheClientEndsTheIdentitySessionAndOnlyReturnsToTheApp', async () => {
+    // Sans fin de session Keycloak, « Se déconnecter » laissait le compte rouvrable sans mot de passe ni code.
+    const logout = (back: string) =>
+      fetch(
+        `${KC_DIRECT}/realms/bf/protocol/openid-connect/logout?client_id=synapse&post_logout_redirect_uri=${encodeURIComponent(back)}`,
+        { redirect: 'manual' },
+      )
+    const accepted = await logout('http://localhost:8080/')
+    expect(accepted.status).toBe(302) // aucune session ouverte ici: retour direct vers l'application
+    expect(accepted.headers.get('location')).toBe('http://localhost:8080/')
+    const refused = await logout('http://evil.example/')
+    expect(refused.status).toBe(400)
+  })
+
   it('anEnrolledAccountStillSignsInThroughSynapse', async () => {
     // Attente d'une nouvelle fenêtre TOTP: Keycloak refuse de rejouer le même code deux fois.
     await new Promise((r) => setTimeout(r, 31_000))

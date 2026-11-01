@@ -7,6 +7,7 @@ import { LOCALES, getLocale, persistLocale, type Locale } from '../i18n/index.ts
 import { sendVoice, startRecording } from '../lib/voice.ts'
 import { downloadFile, sendFile } from '../matrix/files.ts'
 import { createEncryptedRoom, sendText } from '../matrix/rooms.ts'
+import { IDENTITY_LOGOUT_URL } from '../matrix/config.ts'
 import { logout, ssoLoginUrl, startSession } from '../matrix/session.ts'
 import { shouldBlur, watchVisibility, type Visibility } from './privacyShield.ts'
 import { S } from './strings.ts'
@@ -128,7 +129,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
         h('strong', { class: 'identity' }, (client.getUserId() ?? '').replace(/^@/, '').split(':')[0]),
         h('span', { class: 'server' }, (client.getUserId() ?? '').split(':')[1] ?? '')),
       languageSelect(),
-      h('button', { type: 'button', class: 'secondary', click: () => void logout(client).then(() => location.assign('/')) }, S.logout)),
+      h('button', { type: 'button', class: 'secondary', click: () => void logout(client).then(() => location.assign(IDENTITY_LOGOUT_URL)) }, S.logout)),
     newRoomForm,
     lists,
   )
@@ -142,9 +143,11 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   let listsSignature = ''
 
   const eventBody = (event: MatrixEvent): string => {
+    // Un échec de déchiffrement remplace le contenu par un texte anglais du SDK: on le masque pour afficher notre libellé.
+    if (event.isDecryptionFailure()) return S.undecryptable
     if (event.getType() === 'm.room.encrypted') {
       void client.decryptEventIfNeeded(event)
-      return event.isDecryptionFailure() ? S.undecryptable : S.decrypting
+      return S.decrypting
     }
     const body = event.getContent().body
     return typeof body === 'string' ? body : ''
@@ -380,6 +383,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
         } else if (chosen === 'normal') await sendText(client, roomId, input.value)
         else await sendClassified(client, roomId, input.value, chosen)
         input.value = ''
+        instruction.checked = false // une instruction de service est un acte délibéré: jamais reconduite au message suivant
         error.textContent = ''
       } catch (e) {
         error.textContent = e instanceof Error && e.message === 'EMPTY_MESSAGE' ? '' : errorText(e)
