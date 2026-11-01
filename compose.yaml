@@ -90,6 +90,13 @@ services:
     volumes:
       - ./data/synapse:/data
       - ./deploy/synapse/modules:/modules:ro
+    # Le premier démarrage crée le schéma de la base: le contrôle par défaut de l'image (environ 50 s) est trop court.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fSs http://localhost:8008/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
 
   # Crée le compte de service @svc-admin et enregistre son jeton (utilisé par le service d'administration).
   bootstrap:
