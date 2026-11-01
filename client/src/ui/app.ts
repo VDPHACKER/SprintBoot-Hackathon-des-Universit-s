@@ -30,6 +30,8 @@ function h<K extends keyof HTMLElementTagNameMap>(
 const formatDate = (ms: number) => new Intl.DateTimeFormat('fr', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(ms))
 /** Délai maximal accepté par setTimeout (~24,8 jours). */
 const MAX_TIMEOUT_MS = 2 ** 31 - 1
+/** Initiales affichées dans les pastilles (deux lettres au plus). */
+const initials = (name: string) => (name.replace(/^[@#]/, '').split(/[\s.:_-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?')
 const formatSize = (n: number) => (n < 1024 ? `${n} o` : n < 1048576 ? `${(n / 1024).toFixed(1)} Ko` : `${(n / 1048576).toFixed(1)} Mo`)
 
 /** Propose le fichier déchiffré au téléchargement sous son nom d'origine. */
@@ -60,6 +62,7 @@ function languageSelect(): HTMLElement {
 function renderLogin(root: HTMLElement): void {
   root.replaceChildren(
     h('main', { class: 'login' },
+      h('span', { class: 'brand-mark', 'aria-hidden': 'true' }),
       h('h1', {}, S.appTitle),
       ...(new URL(window.location.href).searchParams.has('revoked') ? [h('p', { class: 'error', role: 'alert' }, S.revoked)] : []),
       h('p', {}, S.loginIntro),
@@ -119,7 +122,13 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   const lists = h('div')
   const newRoomForm = drawNewRoomForm()
   const sidebar = h('aside', { 'aria-label': S.rooms },
-    h('header', {}, h('strong', { class: 'identity', title: client.getUserId() ?? '' }, client.getUserId() ?? ''), languageSelect(), h('button', { type: 'button', class: 'secondary', click: () => void logout(client).then(() => location.assign('/')) }, S.logout)),
+    h('header', {},
+      h('span', { class: 'avatar', 'aria-hidden': 'true' }, initials(client.getUserId() ?? '')),
+      h('span', { class: 'who', title: client.getUserId() ?? '' },
+        h('strong', { class: 'identity' }, (client.getUserId() ?? '').replace(/^@/, '').split(':')[0]),
+        h('span', { class: 'server' }, (client.getUserId() ?? '').split(':')[1] ?? '')),
+      languageSelect(),
+      h('button', { type: 'button', class: 'secondary', click: () => void logout(client).then(() => location.assign('/')) }, S.logout)),
     newRoomForm,
     lists,
   )
@@ -320,6 +329,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
       const classification = readClassification(event.getContent())
       const blurred = shouldBlur(classification.level, shield)
       const classes = [event.getSender() === client.getUserId() ? 'mine' : 'theirs']
+      classes.push(`lvl-${classification.level}`)
       if (classification.level === 'confidentiel') classes.push('confidential')
       if (blurred) classes.push('blurred')
       const meta = eventMeta(event, room)
@@ -349,7 +359,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   function composerFor(roomId: string): HTMLElement {
     const cached = composers.get(roomId)
     if (cached) return cached
-    const input = h('textarea', { id: `message-${roomId}`, rows: '2', required: true })
+    const input = h('textarea', { id: `message-${roomId}`, rows: '2', required: true, placeholder: S.messageLabel })
     const level = h('select', { id: `level-${roomId}` }, ...LEVELS.map((l) => h('option', { value: l }, S.levels[l])))
     const hint = h('p', { class: 'hint' })
     const error = h('p', { class: 'error', role: 'alert' })
@@ -415,17 +425,14 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     mic.classList.add('secondary')
     const form = h('form', { class: 'composer', submit: (e) => { e.preventDefault(); void send() } },
       h('label', { for: `message-${roomId}` }, S.messageLabel),
-      input,
-      h('div', { class: 'options' },
+      h('div', { class: 'compose-row' }, input, h('button', { type: 'submit', class: 'send' }, S.send)),
+      h('div', { class: 'toolbar' },
         h('div', { class: 'field' }, h('label', { for: `level-${roomId}` }, S.level), level),
         h('label', { class: 'check', for: `instruction-${roomId}` }, instruction, S.instructionLabel),
+        h('label', { class: 'tool file', for: `file-${roomId}` }, S.attach, file),
+        mic,
       ),
       hint,
-      h('div', { class: 'actions' },
-        h('button', { type: 'submit' }, S.send),
-        mic,
-        h('div', { class: 'field file' }, h('label', { for: `file-${roomId}` }, S.attach), file),
-      ),
       micStatus,
       error,
     )
@@ -437,19 +444,21 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     const name = h('input', { id: 'room-name', required: true })
     const invitees = h('input', { id: 'room-invitees' })
     const error = h('p', { class: 'error', role: 'alert' })
-    return h('form', { class: 'new-room', submit: (e) => {
+    const box = h('details', { class: 'new-room-box' })
+    const form = h('form', { class: 'new-room', submit: (e) => {
       e.preventDefault()
       const invite = invitees.value.split(',').map((s) => s.trim()).filter(Boolean)
       createEncryptedRoom(client, { name: name.value, invite })
-        .then((id) => { selected = id; name.value = ''; invitees.value = ''; error.textContent = ''; refresh() })
+        .then((id) => { selected = id; name.value = ''; invitees.value = ''; error.textContent = ''; box.open = false; refresh() })
         .catch((err) => { error.textContent = errorText(err) })
     } },
-      h('h2', {}, S.newRoom),
       h('label', { for: 'room-name' }, S.roomName), name,
       h('label', { for: 'room-invitees' }, S.invitees), invitees,
       h('button', { type: 'submit' }, S.create),
       error,
     )
+    box.append(h('summary', {}, S.newRoom), form)
+    return box
   }
 
   function draw() {
@@ -466,7 +475,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
           h('li', {}, r.name, h('button', { type: 'button', click: () => void client.joinRoom(r.roomId).then(() => { selected = r.roomId; refresh() }) }, S.join))))] : []),
         h('h2', {}, S.rooms),
         h('ul', { class: 'rooms' }, ...joined.map((r) =>
-          h('li', {}, h('button', { type: 'button', class: r.roomId === selected ? 'active' : '', 'aria-current': String(r.roomId === selected), click: () => { selected = r.roomId; refresh() } }, r.name)))),
+          h('li', {}, h('button', { type: 'button', class: r.roomId === selected ? 'room active' : 'room', 'aria-current': String(r.roomId === selected), click: () => { selected = r.roomId; refresh() } }, h('span', { class: 'avatar sm', 'aria-hidden': 'true' }, initials(r.name)), h('span', { class: 'room-name' }, r.name))))),
       )
     }
 
