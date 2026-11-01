@@ -119,7 +119,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   const lists = h('div')
   const newRoomForm = drawNewRoomForm()
   const sidebar = h('aside', { 'aria-label': S.rooms },
-    h('header', {}, h('strong', {}, client.getUserId() ?? ''), languageSelect(), h('button', { type: 'button', click: () => void logout(client).then(() => location.assign('/')) }, S.logout)),
+    h('header', {}, h('strong', { class: 'identity', title: client.getUserId() ?? '' }, client.getUserId() ?? ''), languageSelect(), h('button', { type: 'button', class: 'secondary', click: () => void logout(client).then(() => location.assign('/')) }, S.logout)),
     newRoomForm,
     lists,
   )
@@ -412,17 +412,20 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     window.addEventListener('pagehide', () => {
       if (recording) void recording.stop().catch(() => undefined) // relâche le micro; l'enregistrement est abandonné
     })
+    mic.classList.add('secondary')
     const form = h('form', { class: 'composer', submit: (e) => { e.preventDefault(); void send() } },
       h('label', { for: `message-${roomId}` }, S.messageLabel),
       input,
-      h('label', { for: `level-${roomId}` }, S.level),
-      level,
+      h('div', { class: 'options' },
+        h('div', { class: 'field' }, h('label', { for: `level-${roomId}` }, S.level), level),
+        h('label', { class: 'check', for: `instruction-${roomId}` }, instruction, S.instructionLabel),
+      ),
       hint,
-      h('label', { class: 'check', for: `instruction-${roomId}` }, instruction, S.instructionLabel),
-      h('button', { type: 'submit' }, S.send),
-      h('label', { for: `file-${roomId}` }, S.attach),
-      file,
-      mic,
+      h('div', { class: 'actions' },
+        h('button', { type: 'submit' }, S.send),
+        mic,
+        h('div', { class: 'field file' }, h('label', { for: `file-${roomId}` }, S.attach), file),
+      ),
       micStatus,
       error,
     )

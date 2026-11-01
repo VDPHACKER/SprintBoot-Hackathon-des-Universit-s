@@ -13,25 +13,43 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 input, textarea { font: inherit; width: 100%; padding: .5rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); }
 label { display: block; margin-top: .5rem; color: var(--muted); font-size: .9rem; }
 .login, .status { max-width: 32rem; margin: 20vh auto; padding: 0 1rem; }
-.layout { display: grid; grid-template-columns: 20rem 1fr; height: 100vh; }
+.layout { display: grid; grid-template-columns: 20rem 1fr; height: 100vh; height: 100dvh; }
 aside { border-right: 1px solid var(--line); padding: 1rem; overflow-y: auto; background: var(--panel); }
-aside header { display: flex; justify-content: space-between; gap: .5rem; align-items: center; margin-bottom: 1rem; word-break: break-all; }
+aside header { display: grid; grid-template-columns: 1fr auto; gap: .5rem; align-items: center; margin-bottom: 1rem; padding-bottom: .75rem; border-bottom: 1px solid var(--line); }
+aside header .identity { grid-column: 1 / -1; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+aside header select { min-width: 0; padding: .35rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); font: inherit; font-size: .9rem; }
+aside header button { white-space: nowrap; }
+button.secondary { background: transparent; color: var(--fg); border-color: var(--line); }
+button.secondary:hover { border-color: var(--accent); }
+button:hover { filter: brightness(1.08); }
+select { font: inherit; padding: .4rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); }
 aside ul { list-style: none; padding: 0; margin: 0 0 1rem; }
 aside li { margin: .25rem 0; }
 aside li > button { width: 100%; text-align: left; background: transparent; color: var(--fg); border-color: var(--line); }
 aside li > button.active { border-color: var(--accent); font-weight: 600; }
 h2 { font-size: 1rem; margin: 1rem 0 .25rem; }
-.content { display: flex; flex-direction: column; min-width: 0; height: 100vh; }
+.content { display: flex; flex-direction: column; min-width: 0; height: 100vh; height: 100dvh; }
 .content > header { display: flex; align-items: center; gap: 1rem; padding: .5rem 1rem; border-bottom: 1px solid var(--line); }
 .content > header h2 { margin: 0; }
 .badge { font-size: .8rem; padding: .1rem .5rem; border-radius: 999px; border: 1px solid; }
 .badge.ok { color: var(--accent); } .badge.warn { color: var(--warn); font-weight: 700; }
-.timeline { list-style: none; margin: 0; padding: 1rem; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: .5rem; }
-.timeline li { max-width: 40rem; padding: .5rem .75rem; border-radius: 8px; display: flex; flex-direction: column; background: var(--theirs); }
+.timeline { list-style: none; margin: 0; padding: 1rem; overflow-y: auto; flex: 1 1 0; min-height: 9rem; display: flex; flex-direction: column; gap: .5rem; }
+.timeline li { flex: 0 0 auto; max-width: 40rem; padding: .5rem .75rem; border-radius: 8px; display: flex; flex-direction: column; background: var(--theirs); }
 .timeline li.mine { align-self: flex-end; background: var(--mine); }
 .sender { font-size: .8rem; color: var(--muted); }
 .body { white-space: pre-wrap; overflow-wrap: anywhere; }
-.composer { border-top: 1px solid var(--line); padding: .75rem 1rem; display: grid; gap: .5rem; }
+.composer { flex: 0 0 auto; max-height: 55%; overflow-y: auto; border-top: 1px solid var(--line); padding: .75rem 1rem; display: grid; gap: .5rem; background: var(--panel); }
+.composer > label { margin: 0; }
+.composer textarea { resize: vertical; min-height: 3.5rem; }
+.composer .options { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; align-items: center; }
+.composer .field { display: flex; align-items: center; gap: .5rem; }
+.composer .field label { margin: 0; white-space: nowrap; }
+.composer .options label.check { margin: 0; }
+.composer .actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.composer .actions .file { flex: 1 1 14rem; min-width: 0; }
+.composer .actions .file input { width: 100%; padding: .3rem; font-size: .85rem; }
+.composer .hint { min-height: 0; }
+.composer .hint:empty { display: none; }
 .meta { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; font-size: .8rem; margin-top: .25rem; }
 .meta select { width: auto; padding: .1rem .25rem; font-size: .8rem; }
 .level { padding: .05rem .5rem; border-radius: 999px; border: 1px solid; font-weight: 600; }
