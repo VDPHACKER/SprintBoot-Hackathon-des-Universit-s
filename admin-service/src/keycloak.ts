@@ -79,6 +79,8 @@ export class KeycloakIdentity implements IdentityProvider {
       ministry: [a.ministry],
       fonction: [a.fonction],
       role: [a.role],
+      // Marqueur d'enrôlement exigé par Synapse (attribute_requirements): un compte Keycloak créé hors enrôlement n'ouvre pas de compte de messagerie.
+      enrolled: ['true'],
     }
     const res = await this.admin('POST', '/users', {
       username: a.username,

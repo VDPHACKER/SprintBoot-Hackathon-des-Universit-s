@@ -76,19 +76,22 @@ export class KcBrowser {
   }
 
   /** Ouvre la page de connexion du client web puis soumet identifiant + mot de passe. */
-  async login(username: string, password: string): Promise<{ res: Response; html: string }> {
+  async login(username: string, password: string, startUrl?: string): Promise<{ res: Response; html: string }> {
     const challenge = createHash('sha256').update(randomBytes(32)).digest('base64url')
-    const page = await this.request(
-      `${KC_DIRECT}/realms/bf/protocol/openid-connect/auth?` +
-        new URLSearchParams({
-          client_id: 'messagerie-web',
-          response_type: 'code',
-          scope: 'openid',
-          redirect_uri: REDIRECT_URI,
-          code_challenge: challenge,
-          code_challenge_method: 'S256',
-        }),
-    )
+    // `startUrl` (ex.: la redirection SSO de Synapse) remplace la demande directe au client web.
+    const page = startUrl
+      ? await this.settle(await this.request(startUrl))
+      : await this.request(
+          `${KC_DIRECT}/realms/bf/protocol/openid-connect/auth?` +
+            new URLSearchParams({
+              client_id: 'messagerie-web',
+              response_type: 'code',
+              scope: 'openid',
+              redirect_uri: REDIRECT_URI,
+              code_challenge: challenge,
+              code_challenge_method: 'S256',
+            }),
+        )
     const { action, fields } = KcBrowser.form(await page.text())
     fields.set('username', username)
     fields.set('password', password)

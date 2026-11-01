@@ -52,6 +52,10 @@ oidc_providers:
     client_secret: "${SYNAPSE_OIDC_SECRET}"
     scopes: ["openid", "profile"]
     allow_existing_users: true
+    # Seuls les comptes enrôlés par le service d'administration (attribut « enrolled ») obtiennent un compte de messagerie.
+    attribute_requirements:
+      - attribute: enrolled
+        value: "true"
     user_mapping_provider:
       config:
         localpart_template: "{{ user.preferred_username }}"
