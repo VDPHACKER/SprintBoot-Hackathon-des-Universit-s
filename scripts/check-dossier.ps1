@@ -1,4 +1,4 @@
-# Controle automatique du dossier de candidature. Code de sortie 1 si un point manque.
+﻿# Controle automatique du dossier de candidature. Code de sortie 1 si un point manque.
 # Usage: powershell -File scripts/check-dossier.ps1
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -38,7 +38,7 @@ foreach ($file in @('dossier\2-note-pre-projet.pdf', 'dossier\3-note-securite.pd
 
 # 6. La fiche equipe et la repartition des roles sont a completer par l'equipe: on le rappelle sans bloquer
 $fiche = [IO.File]::ReadAllText((Join-Path $root 'docs\fiche-equipe.md'), [Text.Encoding]::UTF8)
-if ($fiche -match '(?m)^\| 1 \| \| ') { Write-Host 'RAPPEL docs/fiche-equipe.md est encore vide: a remplir par l equipe (noms, filieres, attestations).' -ForegroundColor Yellow }
+if ($fiche -match '(?m)^\| 1 \| \| |à compléter') { Write-Host 'RAPPEL docs/fiche-equipe.md contient encore des champs a completer (universite, filieres, niveaux, contacts, attestations).' -ForegroundColor Yellow }
 
 # 7. Aucun secret ni donnee generee dans le depot
 $tracked = git ls-files

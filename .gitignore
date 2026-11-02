@@ -4,3 +4,10 @@ data/
 .env
 .superpowers/
 .omc/
+
+# Dossier de candidature: déposé sur la plateforme du MTDPCE, pas dans le dépôt public
+docs/fiche-equipe.md
+docs/note-pre-projet.md
+docs/note-securite.md
+docs/video-script.md
+dossier/

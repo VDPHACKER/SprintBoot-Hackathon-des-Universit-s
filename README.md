@@ -81,7 +81,7 @@ Un compte révoqué ne se réactive pas : enrôler un nouvel identifiant.
 
 ## Pièces du dossier
 
-Les PDF des notes sont dans `dossier/` ; `cd scripts/pdf && npm ci && node build-pdf.mjs` les régénère et **compte leurs pages réelles** (limite : 2 pages). À relancer après toute modification des notes.
+Les notes du dossier de candidature (pré-projet, sécurité) sont déposées sur la plateforme du MTDPCE et ne sont pas dans ce dépôt public. L'outil `cd scripts/pdf && npm ci && node build-pdf.mjs` les convertit en PDF et **compte leurs pages réelles** (limite : 2 pages).
 
 ## Tests
 
@@ -93,7 +93,7 @@ bash scripts/test-security.sh      # 62 tests d'intégration (garanties de sécu
 ## Limites
 
 - Le **nom des salons, les membres et les droits** sont visibles du serveur (non chiffrés par Matrix), ainsi que « qui parle
-  dans quel salon, quand, et la taille ». Détail et mesures dans [`docs/note-securite.md`](docs/note-securite.md).
+  dans quel salon, quand, et la taille ». Détail et mesures dans la note de sécurité (pièce 3 du dossier de candidature).
 - Le flou des messages confidentiels **dissuade**, il ne bloque pas les captures d'écran (impossible sur le web).
 - Le rôle chef_de_service n'est pas appliqué : seule l'API d'administration exige un rôle (dmin) ; émettre une instruction de service exige d'être modérateur du salon.
 - Pas d'écran de vérification des appareils ; le jeton et les clés restent dans le navigateur, non chiffrés au repos.
