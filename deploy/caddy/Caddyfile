@@ -4,8 +4,9 @@
 }
 
 # Messagerie: API Matrix, API d'administration de la messagerie.
-:8080 {
-	# Jamais exposés : API d'administration de Synapse et fédération.
+:8080, :8000, :8001 {
+	# Les ports 8000 et 8001 servent la même application sur deux origines distinctes (une session par origine):
+	# deux agents côte à côte sur le même poste, pour une démonstration. Jamais exposés : API d'administration de Synapse et fédération.
 	@blocked path /_synapse/admin/* /_matrix/federation/* /_matrix/key/*
 	handle @blocked {
 		respond "Not found" 404

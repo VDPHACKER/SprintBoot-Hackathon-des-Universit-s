@@ -146,6 +146,8 @@ services:
       keycloak: { condition: service_healthy }
     ports:
       - "${CHAT_PORT:-8080}:8080"
+      - "8000:8000" # démonstration à deux portails: même application, origine distincte
+      - "8001:8001"
       - "8081:8081"
     networks:
       default:

@@ -16,7 +16,7 @@ export function toMxid(input: string): string {
 /** Salon privé, chiffré dès sa création (le serveur l'impose aussi), avec les agents invités. */
 export async function createEncryptedRoom(
   client: Pick<MatrixClient, 'createRoom'>,
-  options: { name: string; invite: string[] },
+  options: { name: string; invite: string[]; broadcast?: boolean },
 ): Promise<string> {
   const name = options.name.trim()
   if (name === '') throw new Error('EMPTY_ROOM_NAME')
@@ -25,6 +25,8 @@ export async function createEncryptedRoom(
     name,
     invite,
     visibility: 'private' as unknown as Visibility,
+    // Canal de diffusion: seuls les modérateurs (niveau 50) peuvent écrire, les autres membres lisent.
+    ...(options.broadcast ? { power_level_content_override: { events_default: 50 } } : {}),
     initial_state: [
       { type: 'm.room.encryption', state_key: '', content: { algorithm: 'm.megolm.v1.aes-sha2' } },
     ],

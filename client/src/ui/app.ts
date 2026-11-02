@@ -7,7 +7,7 @@ import { LOCALES, getLocale, persistLocale, t, type Locale } from '../i18n/index
 import { sendVoice, startRecording } from '../lib/voice.ts'
 import { downloadFile, sendFile } from '../matrix/files.ts'
 import { createEncryptedRoom, sendText, toMxid } from '../matrix/rooms.ts'
-import { IDENTITY_LOGOUT_URL } from '../matrix/config.ts'
+import { identityLogoutUrl } from '../matrix/config.ts'
 import { logout, ssoLoginUrl, startSession } from '../matrix/session.ts'
 import { shouldBlur, watchVisibility, type Visibility } from './privacyShield.ts'
 import { S } from './strings.ts'
@@ -71,6 +71,10 @@ const ICON_PATHS: Record<string, string> = {
   groups: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3.300 2.700-5.500 6-5.500s6 2.200 6 5.500M17 11a2.500 2.500 0 1 0 0-5M17.500 14.600c2.200.4 3.500 2.300 3.500 5.400',
   security: 'M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6zM9 12l2 2 4-4',
   shield: 'M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z',
+  directory: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM8 4v13M11 8h5',
+  channels: 'M4 10v4l12 5V5zM16 8.500a4 4 0 0 1 0 7M7 15l1 5h3',
+  documents: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
+  settings: 'M4 7h10M18 7h2M4 17h2M10 17h10M14 5v4M8 15v4',
 }
 function icon(name: keyof typeof ICON_PATHS, size = 20): SVGElement {
   const ns = 'http://www.w3.org/2000/svg'
@@ -175,7 +179,8 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   let expiryTimer: ReturnType<typeof setTimeout> | undefined
   // Éléments persistants: les champs de saisie ne sont JAMAIS reconstruits, sinon un message en cours de frappe
   // disparaîtrait à chaque événement de synchronisation.
-  type View = 'messages' | 'groups' | 'security'
+  type View = 'messages' | 'groups' | 'directory' | 'channels' | 'documents' | 'security' | 'settings'
+  let viewUpdate: (() => void) | undefined // mise à jour de la vue ouverte (sans reconstruire ses champs de saisie)
   let view: View = 'messages'
   let tab: 'recent' | 'groups' = 'recent'
   let query = ''
@@ -184,7 +189,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   const newRoomForm = drawNewRoomForm()
   const search = h('input', { type: 'search', placeholder: t('search'), 'aria-label': t('search'), input: () => { query = search.value.trim().toLowerCase(); listsSignature = ''; refresh() } })
   const tabButtons = (['recent', 'groups'] as const).map((k) => h('button', { type: 'button', role: 'tab', class: 'tab', 'data-tab': k, click: () => { tab = k; listsSignature = ''; refresh() } }, k === 'recent' ? t('tab.recent') : t('tab.groups')))
-  const navButtons = (['messages', 'groups', 'security'] as const).map((v) =>
+  const navButtons = (['messages', 'groups', 'directory', 'channels', 'documents', 'security', 'settings'] as const).map((v) =>
     h('button', { type: 'button', class: 'nav-item', 'data-view': v, click: () => setView(v) }, icon(v), h('span', {}, t(`nav.${v}`))))
   const nav = h('nav', { class: 'nav', 'aria-label': t('nav.label') },
     h('div', { class: 'brand' }, logo(40), h('span', { class: 'brand-name' }, S.appTitle)),
@@ -195,7 +200,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
         h('strong', { class: 'identity' }, meName),
         h('span', { class: 'presence' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), t('online'))),
       languageSelect(),
-      h('button', { type: 'button', class: 'ghost', click: () => void logout(client).then(() => location.assign(IDENTITY_LOGOUT_URL)) }, S.logout)),
+      h('button', { type: 'button', class: 'ghost', click: () => void logout(client).then(() => location.assign(identityLogoutUrl())) }, S.logout)),
   )
   const listCol = h('section', { class: 'listcol', 'aria-label': S.rooms },
     h('div', { class: 'searchbox' }, search),
@@ -615,8 +620,101 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     shownRoom = undefined
     lastTimelineSignature = ''
     listsSignature = ''
+    viewUpdate = undefined
     if (next === 'security') void showSecurity()
+    else if (next === 'directory') showDirectory()
+    else if (next === 'channels') showChannels()
+    else if (next === 'settings') showSettings()
     refresh()
+  }
+
+  /** Annuaire: contacts des salons communs au départ, puis recherche dans l'annuaire du serveur; « Contacter » ouvre un échange chiffré. */
+  function showDirectory() {
+    const me = client.getUserId()
+    const results = h('ul', { class: 'agent-list' })
+    const heading = h('h2', {}, t('dir.contacts'))
+    const input = h('input', { type: 'search', placeholder: t('dir.search'), 'aria-label': t('dir.search') })
+    type Person = { user_id: string; display_name?: string }
+    const contact = (u: Person) =>
+      void createEncryptedRoom(client, { name: u.display_name || u.user_id, invite: [u.user_id] })
+        .then((id) => { selected = id; setView('messages') })
+        .catch(() => undefined)
+    const render = (people: Person[]) => results.replaceChildren(...(people.length === 0 ? [h('li', { class: 'muted' }, t('dir.empty'))] : people.map((u) =>
+      h('li', {}, avatar(u.display_name || u.user_id), h('div', { class: 'group-main' }, h('strong', {}, u.display_name || u.user_id), h('span', { class: 'muted' }, u.user_id)),
+        h('button', { type: 'button', class: 'secondary', click: () => contact(u) }, t('dir.contact'))))))
+    const shared = (): Person[] => {
+      const seen = new Map<string, Person>()
+      for (const r of client.getRooms()) if (r.getMyMembership() === 'join') for (const m of r.getJoinedMembers()) if (m.userId !== me) seen.set(m.userId, { user_id: m.userId, display_name: m.name })
+      return [...seen.values()]
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const run = () => {
+      const term = input.value.trim()
+      heading.textContent = term ? t('dir.results') : t('dir.contacts')
+      if (!term) return render(shared())
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        client.searchUserDirectory({ term, limit: 30 }).then((r) => { if (input.value.trim() === term) render(r.results.filter((u) => u.user_id !== me)) }).catch(() => render([]))
+      }, 250)
+    }
+    input.addEventListener('input', run)
+    render(shared())
+    content.replaceChildren(h('section', { class: 'panel' }, h('h1', {}, t('dir.title')), h('div', { class: 'searchbox flat' }, input), heading, results))
+  }
+
+  const isChannel = (r: Room) => Number(r.currentState.getStateEvents('m.room.power_levels', '')?.getContent().events_default ?? 0) >= 50
+
+  /** Canaux institutionnels: salons où seuls les modérateurs écrivent (diffusion officielle). */
+  function showChannels() {
+    const name = h('input', { id: 'channel-name', placeholder: t('channels.name'), required: true })
+    const invitees = h('input', { id: 'channel-invitees', placeholder: S.invitees })
+    const error = h('p', { class: 'error', role: 'alert' })
+    const list = h('ul', { class: 'group-grid' })
+    const form = h('form', { class: 'channel-form', submit: (e) => {
+      e.preventDefault()
+      createEncryptedRoom(client, { name: name.value, invite: invitees.value.split(',').map((s) => s.trim()).filter(Boolean), broadcast: true })
+        .then((id) => { name.value = ''; invitees.value = ''; error.textContent = ''; selected = id; setView('messages') })
+        .catch((err) => { error.textContent = errorText(err) })
+    } }, name, invitees, h('button', { type: 'submit' }, t('channels.create')), error)
+    viewUpdate = () => {
+      const channels = client.getRooms().filter((r) => r.getMyMembership() === 'join' && isChannel(r))
+      list.replaceChildren(...(channels.length === 0 ? [h('li', { class: 'muted' }, t('channels.empty'))] : channels.map((r) =>
+        h('li', {}, avatar(r.name), h('div', { class: 'group-main' }, h('strong', {}, r.name), h('span', { class: 'muted' }, `${t('channels.badge')} · ${S.agentsCount(r.getJoinedMemberCount())}`)),
+          h('button', { type: 'button', class: 'secondary', click: () => { selected = r.roomId; setView('messages') } }, t('groups.open'))))))
+    }
+    viewUpdate()
+    content.replaceChildren(h('section', { class: 'panel' }, h('h1', {}, t('channels.title')), h('p', { class: 'muted' }, t('channels.help')), form, list))
+  }
+
+  /** Documents: tous les fichiers reçus ou envoyés dans vos salons, téléchargeables (déchiffrés dans le navigateur). */
+  function drawDocuments() {
+    const docs: Array<{ room: Room; event: MatrixEvent }> = []
+    for (const r of client.getRooms()) {
+      if (r.getMyMembership() !== 'join') continue
+      for (const e of visibleEvents(r.getLiveTimeline().getEvents(), Date.now())) {
+        const c = e.getContent()
+        if (e.getType() === 'm.room.message' && c.msgtype === 'm.file' && c.file) docs.push({ room: r, event: e })
+      }
+    }
+    docs.sort((a, b) => b.event.getTs() - a.event.getTs())
+    content.replaceChildren(h('section', { class: 'panel' }, h('h1', {}, t('docs.title')),
+      docs.length === 0 ? h('p', { class: 'muted' }, t('docs.empty')) : h('ul', { class: 'group-grid' }, ...docs.map(({ room, event }) => {
+        const c = event.getContent()
+        const name = String(c.filename ?? c.body ?? 'fichier')
+        const size = typeof c.info?.size === 'number' ? ` · ${formatSize(c.info.size)}` : ''
+        return h('li', {}, icon('documents', 26),
+          h('div', { class: 'group-main' }, h('strong', {}, name), h('span', { class: 'muted' }, `${room.getMember(event.getSender() ?? '')?.name ?? event.getSender()} ${t('docs.in')} ${room.name}${size} · ${formatDate(event.getTs())}`)),
+          h('button', { type: 'button', class: 'secondary', click: () => void downloadFile(client, event).then((blob) => saveBlob(blob, name)).catch(() => undefined) }, S.download))
+      }))))
+  }
+
+  function showSettings() {
+    const id = client.getUserId() ?? ''
+    content.replaceChildren(h('section', { class: 'panel' }, h('h1', {}, t('settings.title')),
+      h('div', { class: 'cards' },
+        h('article', { class: 'card' }, h('h2', {}, t('settings.account')), h('p', {}, id), h('p', { class: 'muted' }, `${t('settings.server')} : ${id.split(':')[1] ?? ''}`)),
+        h('article', { class: 'card' }, h('h2', {}, t('settings.device')), h('p', {}, 'DÎYOY Web'), h('p', { class: 'muted' }, client.getDeviceId() ?? '')),
+        h('article', { class: 'card' }, h('h2', {}, S.language), languageSelect()))))
   }
 
   /** Centre de sécurité: appareils réellement connectés au compte, second facteur, chiffrement, déconnexion de tous les appareils. */
@@ -635,7 +733,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
       }
       void client.http.authedRequest(Method.Post, '/logout/all', undefined, {})
         .catch(() => undefined)
-        .finally(() => void logout(client).then(() => location.assign(IDENTITY_LOGOUT_URL)))
+        .finally(() => void logout(client).then(() => location.assign(identityLogoutUrl())))
     } }, t('sec.logoutAll'))
     const deviceList = h('ul', { class: 'device-list' }, ...devices.map((d) =>
       h('li', {}, h('strong', {}, d.display_name || t('sec.noName')),
@@ -697,8 +795,13 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     for (const b of tabButtons) b.setAttribute('aria-selected', String(b.dataset.tab === tab))
     layout.classList.toggle('chat-open', view === 'messages' && selected !== undefined)
     listCol.classList.toggle('hidden', view !== 'messages')
-    if (view === 'security') { infoCol.classList.add('hidden'); return }
-    if (view === 'groups') { infoCol.classList.add('hidden'); drawGroups(); return }
+    if (view !== 'messages') {
+      infoCol.classList.add('hidden')
+      if (view === 'groups') drawGroups()
+      else if (view === 'documents') drawDocuments()
+      else viewUpdate?.()
+      return
+    }
 
     const rooms = client.getRooms()
     const invites = rooms.filter((r) => r.getMyMembership() === 'invite')

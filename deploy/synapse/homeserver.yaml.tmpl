@@ -42,6 +42,8 @@ password_config:
 sso:
   client_whitelist:
     - "http://localhost:${CHAT_PORT}/"
+    - "http://localhost:8000/"
+    - "http://localhost:8001/"
 oidc_providers:
   - idp_id: keycloak
     idp_name: "Identité de l'administration"
@@ -90,6 +92,7 @@ suppress_key_server_warning: true
 allow_public_rooms_over_federation: false
 
 max_upload_size: 50M
+# Annuaire des agents: tout agent enrôlé peut retrouver les autres (identifiant et nom affiché seulement).
 user_directory:
   enabled: true
-  search_all_users: false
+  search_all_users: true

@@ -7,6 +7,6 @@ export const SSO_PROVIDER = 'oidc-keycloak'
  * suivant sur « Se connecter » rouvrirait le compte sans mot de passe ni code, ce qui est inacceptable sur un poste partagé.
  * Adresse publique de la démonstration locale (voir README: ports non configurables).
  */
-export const IDENTITY_LOGOUT_URL =
+export const identityLogoutUrl = (): string =>
   'http://auth.localhost:8081/realms/bf/protocol/openid-connect/logout?client_id=synapse&post_logout_redirect_uri=' +
-  encodeURIComponent('http://localhost:8080/')
+  encodeURIComponent(`${window.location.origin}/`)
