@@ -1,6 +1,6 @@
-# Messagerie souveraine de l'administration
+# DÎYOY — messagerie souveraine de l'administration
 
-Messagerie instantanée (messages, groupes, fichiers, messages vocaux) pour les agents de l'administration publique
+**DÎYOY** signifie « porteur de message » en songhay. Messagerie instantanée (messages, groupes, fichiers, messages vocaux) pour les agents de l'administration publique
 burkinabè, **hébergeable sur l'infrastructure de l'État**, dont le serveur **ne peut rien lire**. Projet du sprint
 technique pré-hackathon, Hackathon 226 (édition 2026).
 

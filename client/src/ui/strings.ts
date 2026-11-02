@@ -6,6 +6,36 @@ export const S = {
   get appTitle() {
     return t('appTitle')
   },
+  get tagline() {
+    return t('tagline')
+  },
+  get appSubtitle() {
+    return t('appSubtitle')
+  },
+  get serverStatus() {
+    return t('serverStatus')
+  },
+  agentsCount: (count: number) => (count <= 1 ? t('agentsCountOne') : t('agentsCount', { count: String(count) })),
+  get levelHelp() {
+    return t('levelHelp')
+  },
+  get levelHelps(): Record<Level, string> {
+    return { normal: t('levelNormalHelp'), restreinte: t('levelRestreinteHelp'), confidentiel: t('levelConfidentielHelp') }
+  },
+  get levelNote() {
+    return t('levelNote')
+  },
+  get expiry() {
+    return t('expiry')
+  },
+  get expiryOptions(): Array<{ value: string; label: string }> {
+    return [
+      { value: '', label: t('expiryDefault') },
+      { value: String(3_600_000), label: t('expiry1h') },
+      { value: String(86_400_000), label: t('expiry24h') },
+      { value: String(7 * 86_400_000), label: t('expiry7d') },
+    ]
+  },
   get loginIntro() {
     return t('loginIntro')
   },

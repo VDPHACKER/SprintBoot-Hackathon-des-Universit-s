@@ -67,6 +67,7 @@ services:
     volumes:
       - ./data/secrets:/secrets:ro
       - ./data/keycloak:/opt/keycloak/data/import:ro
+      - ./deploy/keycloak/theme:/opt/keycloak/themes:ro # écran de connexion aux couleurs de DÎYOY
     healthcheck:
       test:
         - CMD-SHELL

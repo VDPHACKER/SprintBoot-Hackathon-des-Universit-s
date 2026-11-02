@@ -33,6 +33,38 @@ const formatDate = (ms: number) => new Intl.DateTimeFormat('fr', { dateStyle: 's
 const MAX_TIMEOUT_MS = 2 ** 31 - 1
 /** Initiales affichées dans les pastilles (deux lettres au plus). */
 const initials = (name: string) => (name.replace(/^[@#]/, '').split(/[\s.:_-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?')
+/** Teintes douces des pastilles (palette du design): une couleur stable par nom. */
+const TINTS: ReadonlyArray<[string, string]> = [['#E3F0E8', '#0F2A1F'], ['#F9E0DC', '#6B1F18'], ['#FBEFC8', '#5C4300'], ['#E8E0F3', '#3A2A63'], ['#DDE8F5', '#1F3A5C'], ['#F1E4D8', '#5A3A1E']]
+const tintFor = (name: string): [string, string] => {
+  let sum = 0
+  for (const ch of name) sum = (sum * 31 + ch.charCodeAt(0)) >>> 0
+  return TINTS[sum % TINTS.length]!
+}
+/** Pastille à initiales colorée; les couleurs passent par le CSSOM (la CSP interdit les attributs `style`). */
+function avatar(name: string, small = false): HTMLElement {
+  const el = h('span', { class: small ? 'avatar sm' : 'avatar', 'aria-hidden': 'true' }, initials(name))
+  const [bg, fg] = tintFor(name)
+  el.style.setProperty('background', bg)
+  el.style.setProperty('color', fg)
+  return el
+}
+/** Logo DÎYOY: bulle de discussion fermée par une serrure, sur fond vert. Construit nœud par nœud, sans innerHTML. */
+function logo(size = 40): SVGElement {
+  const ns = 'http://www.w3.org/2000/svg'
+  const mk = (tag: string, attrs: Record<string, string>) => {
+    const node = document.createElementNS(ns, tag)
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v)
+    return node
+  }
+  const svg = mk('svg', { viewBox: '0 0 64 64', width: String(size), height: String(size), role: 'img', 'aria-label': 'DÎYOY' }) as SVGElement
+  svg.append(
+    mk('rect', { width: '64', height: '64', rx: '16', fill: '#0B6B45' }),
+    mk('path', { d: 'M18 15h28a6 6 0 0 1 6 6v17a6 6 0 0 1-6 6H33l-9 8v-8h-6a6 6 0 0 1-6-6V21a6 6 0 0 1 6-6z', fill: '#FFFFFF' }),
+    mk('circle', { cx: '32', cy: '26.5', r: '4.2', fill: '#0B6B45' }),
+    mk('path', { d: 'M30.4 29h3.2l1.1 8h-5.4z', fill: '#0B6B45' }),
+  )
+  return svg
+}
 const formatSize = (n: number) => (n < 1024 ? `${n} o` : n < 1048576 ? `${(n / 1024).toFixed(1)} Ko` : `${(n / 1048576).toFixed(1)} Mo`)
 
 /** Propose le fichier déchiffré au téléchargement sous son nom d'origine. */
@@ -63,8 +95,10 @@ function languageSelect(): HTMLElement {
 function renderLogin(root: HTMLElement): void {
   root.replaceChildren(
     h('main', { class: 'login' },
-      h('span', { class: 'brand-mark', 'aria-hidden': 'true' }),
+      logo(56),
       h('h1', {}, S.appTitle),
+      h('p', { class: 'tagline' }, S.tagline),
+      h('p', { class: 'subtitle' }, S.appSubtitle),
       ...(new URL(window.location.href).searchParams.has('revoked') ? [h('p', { class: 'error', role: 'alert' }, S.revoked)] : []),
       h('p', {}, S.loginIntro),
       h('a', { class: 'button', href: ssoLoginUrl() }, S.login),
@@ -124,10 +158,15 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   const newRoomForm = drawNewRoomForm()
   const sidebar = h('aside', { 'aria-label': S.rooms },
     h('header', {},
-      h('span', { class: 'avatar', 'aria-hidden': 'true' }, initials(client.getUserId() ?? '')),
-      h('span', { class: 'who', title: client.getUserId() ?? '' },
-        h('strong', { class: 'identity' }, (client.getUserId() ?? '').replace(/^@/, '').split(':')[0]),
-        h('span', { class: 'server' }, (client.getUserId() ?? '').split(':')[1] ?? '')),
+      h('div', { class: 'brand' }, logo(36), h('span', { class: 'brand-name' }, S.appTitle)),
+      h('p', { class: 'status-line' },
+        h('span', { class: 'line' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), S.serverStatus),
+        h('span', { class: 'line' }, S.encrypted)),
+      h('div', { class: 'me' },
+        avatar((client.getUserId() ?? '').replace(/^@/, '')),
+        h('span', { class: 'who', title: client.getUserId() ?? '' },
+          h('strong', { class: 'identity' }, (client.getUserId() ?? '').replace(/^@/, '').split(':')[0]),
+          h('span', { class: 'server' }, (client.getUserId() ?? '').split(':')[1] ?? ''))),
       languageSelect(),
       h('button', { type: 'button', class: 'secondary', click: () => void logout(client).then(() => location.assign(IDENTITY_LOGOUT_URL)) }, S.logout)),
     newRoomForm,
@@ -367,9 +406,22 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     const hint = h('p', { class: 'hint' })
     const error = h('p', { class: 'error', role: 'alert' })
     const instruction = h('input', { id: `instruction-${roomId}`, type: 'checkbox' })
+    // Le `select` reste la source de vérité (lecteurs d'écran, logique d'envoi); les cartes le pilotent.
+    level.classList.add('sr-only')
+    const expiry = h('select', { id: `expiry-${roomId}`, 'aria-label': S.expiry }, ...S.expiryOptions.map((o) => h('option', { value: o.value }, o.label)))
+    const expiryField = h('label', { class: 'field expiry', for: `expiry-${roomId}` }, S.expiry, expiry)
+    const cards = LEVELS.map((l) => h('button', {
+      type: 'button', role: 'radio', class: `level-card level-card-${l}`, 'data-level': l,
+      click: () => { level.value = l; level.dispatchEvent(new Event('change')) },
+    }, h('strong', {}, S.levels[l])))
+    const levelNote = h('p', { class: 'level-note' }, S.levelNote)
     const describe = () => {
-      const policy = policyFor(level.value as Level)
-      hint.textContent = [policy.noForward ? S.noForward : '', policy.defaultTtlMs ? S.expiresIn(Math.round(policy.defaultTtlMs / 3_600_000)) : ''].filter(Boolean).join(' ')
+      const chosen = level.value as Level
+      hint.textContent = S.levelHelps[chosen]
+      levelNote.classList.toggle('hidden', chosen === 'normal') // la note ne concerne que les niveaux à règles
+      for (const card of cards) card.setAttribute('aria-checked', String(card.dataset.level === chosen))
+      expiryField.classList.toggle('hidden', chosen === 'normal')
+      if (chosen === 'normal') expiry.value = ''
     }
     level.addEventListener('change', describe)
     describe()
@@ -381,7 +433,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
           if (!isInstructionAuthority(client.getRoom(roomId)?.getMember(client.getUserId() ?? '')?.powerLevel)) throw new Error('NOT_AUTHORITY')
           await sendInstruction(client, roomId, input.value, chosen)
         } else if (chosen === 'normal') await sendText(client, roomId, input.value)
-        else await sendClassified(client, roomId, input.value, chosen)
+        else await sendClassified(client, roomId, input.value, chosen, expiry.value ? Number(expiry.value) : undefined)
         input.value = ''
         instruction.checked = false // une instruction de service est un acte délibéré: jamais reconduite au message suivant
         error.textContent = ''
@@ -430,13 +482,19 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     const form = h('form', { class: 'composer', submit: (e) => { e.preventDefault(); void send() } },
       h('label', { for: `message-${roomId}` }, S.messageLabel),
       h('div', { class: 'compose-row' }, input, h('button', { type: 'submit', class: 'send' }, S.send)),
+      h('div', { class: 'levels' },
+        h('span', { class: 'levels-title', id: `levels-${roomId}` }, S.level),
+        h('div', { class: 'level-cards', role: 'radiogroup', 'aria-labelledby': `levels-${roomId}` }, ...cards),
+        level,
+        expiryField,
+      ),
+      hint,
+      levelNote,
       h('div', { class: 'toolbar' },
-        h('div', { class: 'field' }, h('label', { for: `level-${roomId}` }, S.level), level),
         h('label', { class: 'check', for: `instruction-${roomId}` }, instruction, S.instructionLabel),
         h('label', { class: 'tool file', for: `file-${roomId}` }, S.attach, file),
         mic,
       ),
-      hint,
       micStatus,
       error,
     )
@@ -479,7 +537,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
           h('li', {}, r.name, h('button', { type: 'button', click: () => void client.joinRoom(r.roomId).then(() => { selected = r.roomId; refresh() }) }, S.join))))] : []),
         h('h2', {}, S.rooms),
         h('ul', { class: 'rooms' }, ...joined.map((r) =>
-          h('li', {}, h('button', { type: 'button', class: r.roomId === selected ? 'room active' : 'room', 'aria-current': String(r.roomId === selected), click: () => { selected = r.roomId; refresh() } }, h('span', { class: 'avatar sm', 'aria-hidden': 'true' }, initials(r.name)), h('span', { class: 'room-name' }, r.name))))),
+          h('li', {}, h('button', { type: 'button', class: r.roomId === selected ? 'room active' : 'room', 'aria-current': String(r.roomId === selected), click: () => { selected = r.roomId; refresh() } }, avatar(r.name, true), h('span', { class: 'room-name' }, r.name))))),
       )
     }
 
@@ -495,7 +553,10 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
       shownRoom = room.roomId
       lastTimelineSignature = ''
     }
-    roomHeader.replaceChildren(h('h2', {}, room.name), h('span', { class: room.hasEncryptionStateEvent() ? 'badge ok' : 'badge warn' }, room.hasEncryptionStateEvent() ? S.encrypted : S.notEncrypted))
+    roomHeader.replaceChildren(
+      avatar(room.name),
+      h('div', { class: 'room-title' }, h('h2', {}, room.name), h('span', { class: 'members' }, S.agentsCount(room.getJoinedMemberCount()))),
+      h('span', { class: room.hasEncryptionStateEvent() ? 'badge ok' : 'badge warn' }, room.hasEncryptionStateEvent() ? S.encrypted : S.notEncrypted))
     fillTimeline(room, switched)
   }
   draw()
