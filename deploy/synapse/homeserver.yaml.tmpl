@@ -69,6 +69,14 @@ modules:
 # Tous les salons sont chiffrés de bout en bout dès leur création.
 encryption_enabled_by_default_for_room_type: all
 
+# Limite de connexions par adresse: la connexion par mot de passe est désactivée (identité par Keycloak, qui a sa propre
+# protection contre les essais répétés), donc la limite par défaut ne protège rien et bloquait les connexions rapprochées
+# (démonstration, plusieurs agents derrière une même adresse de l'administration).
+rc_login:
+  address: { per_second: 1, burst_count: 30 }
+  account: { per_second: 1, burst_count: 30 }
+  failed_attempts: { per_second: 1, burst_count: 30 }
+
 # Minimisation des métadonnées.
 presence:
   enabled: false
