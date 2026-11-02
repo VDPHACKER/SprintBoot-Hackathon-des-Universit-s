@@ -87,7 +87,7 @@ Les PDF des notes sont dans `dossier/` ; `cd scripts/pdf && npm ci && node build
 
 ```bash
 docker compose -f compose.yaml -f compose.test.yaml up -d --wait
-bash scripts/test-security.sh      # 59 tests d'intégration (garanties de sécurité et fonctions), 110 tests unitaires en plus
+bash scripts/test-security.sh      # 62 tests d'intégration (garanties de sécurité et fonctions), 110 tests unitaires en plus
 ```
 
 ## Limites

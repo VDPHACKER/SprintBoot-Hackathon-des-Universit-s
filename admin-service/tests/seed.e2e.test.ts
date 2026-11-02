@@ -12,7 +12,7 @@ interface DemoUser {
 const demoUsers = JSON.parse(readFileSync(resolve(ROOT, 'deploy/keycloak/demo-users.json'), 'utf8')) as DemoUser[]
 const DEMO_NAMES = ['admin.demo', 'awa.ouedraogo', 'issa.kabore', 'moussa.sawadogo']
 /** Les autres tests créent des comptes jetables préfixés; ils ne comptent pas dans l'état de départ. */
-const isTestAccount = (u: string) => /^(kc|e2e)-/.test(u)
+const isTestAccount = (u: string) => /^(kc|e2e|cli)-/.test(u)
 
 describe('SÉCURITÉ: comptes de démonstration (second facteur imposé)', () => {
   let admin: Record<string, string>

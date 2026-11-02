@@ -14,7 +14,7 @@ Le serveur est **hébergé par l'État mais considéré comme curieux** : il doi
 | Mot de passe volé | **Second facteur TOTP obligatoire** ; octroi direct par mot de passe **refusé sur tous les clients**, y compris le client intégré `admin-cli` (corrigé après relecture indépendante) | le mot de passe seul ne délivre aucun code d'autorisation ni aucun jeton |
 | Départ d'un agent, appareil perdu | Révocation : Keycloak puis Synapse coupés, jetons et appareils supprimés, sortie des salons, **nouvelle clé de groupe** | jeton refusé en moins de 2 s ; clé de groupe changée ; client ouvert déconnecté |
 | Falsification d'un accusé ou d'une pièce jointe | Empreinte SHA-256 dans l'accusé ; empreinte des fichiers vérifiée ; **clé d'appareil de l'auteur authentifiée** par le chiffrement de groupe (l'identifiant d'appareil n'est que déclaré) | fausse empreinte ignorée ; fichier falsifié rejeté ; clé = clé réelle |
-| Fuite par transfert, relecture, vol de session | Transfert interdit (recalculé selon le niveau) ; expiration ; CSP stricte ; texte inséré sans HTML ; médias authentifiés ; jeton d'administration vérifié (RS256 imposé) | tests unitaires et d'intégration |
+| Fuite par transfert, relecture, vol de session | Transfert interdit (recalculé selon le niveau) ; expiration ; CSP stricte ; texte inséré sans HTML ; médias authentifiés ; jeton d'administration vérifié (RS256 imposé) ; la déconnexion ferme aussi la session d'identité (mot de passe et code redemandés) | tests unitaires et d'intégration |
 
 ## 3. Ce que le serveur voit malgré tout (mesuré dans la base)
 
