@@ -38,7 +38,7 @@ foreach ($file in @('dossier\2-note-pre-projet.pdf', 'dossier\3-note-securite.pd
 
 # 6. La fiche equipe et la repartition des roles sont a completer par l'equipe: on le rappelle sans bloquer
 $fiche = [IO.File]::ReadAllText((Join-Path $root 'docs\fiche-equipe.md'), [Text.Encoding]::UTF8)
-if ($fiche -match '(?m)^\| 1 \| \| |à compléter') { Write-Host 'RAPPEL docs/fiche-equipe.md contient encore des champs a completer (universite, filieres, niveaux, contacts, attestations).' -ForegroundColor Yellow }
+if ($fiche -match '(?m)^\| 1 \| \| |à compléter|à joindre') { Write-Host 'RAPPEL docs/fiche-equipe.md: les attestations d inscription 2026-2027 restent a joindre au depot sur la plateforme.' -ForegroundColor Yellow }
 
 # 7. Aucun secret ni donnee generee dans le depot
 $tracked = git ls-files

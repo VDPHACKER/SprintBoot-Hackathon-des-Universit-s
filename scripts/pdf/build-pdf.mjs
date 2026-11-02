@@ -23,6 +23,7 @@ if (!browser) throw new Error('Aucun Chrome/Edge trouvé: définir CHROME_PATH')
 
 /** [source, PDF produit, pages maximum exigées (0 = pas de limite)] */
 const DOCUMENTS = [
+  ['docs/fiche-equipe.md', '1-fiche-equipe.pdf', 0],
   ['docs/note-pre-projet.md', '2-note-pre-projet.pdf', 2],
   ['docs/note-securite.md', '3-note-securite.pdf', 2],
   ['README.md', 'README.pdf', 2],
