@@ -48,8 +48,10 @@ contribution à un projet amont.
 Prérequis : Docker avec Compose v2, environ 4 Go de mémoire libre, un navigateur récent.
 
 ```bash
-docker compose up -d --wait        # 2 à 3 minutes la première fois
+docker compose up -d --wait        # 4 à 6 minutes la première fois (images et construction du client)
 ```
+
+Si le projet a déjà été installé dans un autre dossier, lancer d'abord `docker compose down -v` dans l'ancien : le volume de la base y garde les anciens mots de passe.
 
 Puis ouvrir <http://localhost:8080>. Tout est généré automatiquement (secrets, configuration, comptes de démonstration).
 Remise à zéro complète : `bash scripts/clean-install-check.sh --yes` (détruit données et volumes).
