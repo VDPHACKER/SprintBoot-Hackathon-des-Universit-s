@@ -1,12 +1,12 @@
-import { ClientEvent, MatrixEventEvent, RoomEvent, type MatrixClient, type MatrixEvent, type Room } from 'matrix-js-sdk'
+import { ClientEvent, MatrixEventEvent, Method, RoomEvent, type MatrixClient, type MatrixEvent, type Room } from 'matrix-js-sdk'
 import { ACK_TYPE, INSTRUCTION_KEY, ackMarkerKey, contentSha256, isInstructionAuthority, sendAck, sendInstruction, tallyAcks } from '../lib/ack.ts'
 import { LEVELS, forwardMessage, policyFor, readClassification, sendClassified, type Level } from '../lib/classification.ts'
 import { scheduleExpiry, visibleEvents } from '../lib/expiry.ts'
 import { buildProof, type ProofReport } from '../lib/proof.ts'
-import { LOCALES, getLocale, persistLocale, type Locale } from '../i18n/index.ts'
+import { LOCALES, getLocale, persistLocale, t, type Locale } from '../i18n/index.ts'
 import { sendVoice, startRecording } from '../lib/voice.ts'
 import { downloadFile, sendFile } from '../matrix/files.ts'
-import { createEncryptedRoom, sendText } from '../matrix/rooms.ts'
+import { createEncryptedRoom, sendText, toMxid } from '../matrix/rooms.ts'
 import { IDENTITY_LOGOUT_URL } from '../matrix/config.ts'
 import { logout, ssoLoginUrl, startSession } from '../matrix/session.ts'
 import { shouldBlur, watchVisibility, type Visibility } from './privacyShield.ts'
@@ -34,7 +34,7 @@ const MAX_TIMEOUT_MS = 2 ** 31 - 1
 /** Initiales affichées dans les pastilles (deux lettres au plus). */
 const initials = (name: string) => (name.replace(/^[@#]/, '').split(/[\s.:_-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?')
 /** Teintes douces des pastilles (palette du design): une couleur stable par nom. */
-const TINTS: ReadonlyArray<[string, string]> = [['#E3F0E8', '#0F2A1F'], ['#F9E0DC', '#6B1F18'], ['#FBEFC8', '#5C4300'], ['#E8E0F3', '#3A2A63'], ['#DDE8F5', '#1F3A5C'], ['#F1E4D8', '#5A3A1E']]
+const TINTS: ReadonlyArray<[string, string]> = [['#D3E5FD', '#0B2A63'], ['#FEE9C4', '#6B4A00'], ['#DAF8DD', '#14532D'], ['#FECFD1', '#7F1D1D'], ['#E4DDFB', '#3B2A7A'], ['#D8F1F6', '#0E4B5A']]
 const tintFor = (name: string): [string, string] => {
   let sum = 0
   for (const ch of name) sum = (sum * 31 + ch.charCodeAt(0)) >>> 0
@@ -58,11 +58,27 @@ function logo(size = 40): SVGElement {
   }
   const svg = mk('svg', { viewBox: '0 0 64 64', width: String(size), height: String(size), role: 'img', 'aria-label': 'DÎYOY' }) as SVGElement
   svg.append(
-    mk('rect', { width: '64', height: '64', rx: '16', fill: '#0B6B45' }),
-    mk('path', { d: 'M18 15h28a6 6 0 0 1 6 6v17a6 6 0 0 1-6 6H33l-9 8v-8h-6a6 6 0 0 1-6-6V21a6 6 0 0 1 6-6z', fill: '#FFFFFF' }),
-    mk('circle', { cx: '32', cy: '26.5', r: '4.2', fill: '#0B6B45' }),
-    mk('path', { d: 'M30.4 29h3.2l1.1 8h-5.4z', fill: '#0B6B45' }),
+    mk('path', { d: 'M32 3l24 8v19c0 14-10 24-24 30C18 54 8 44 8 30V11z', fill: '#0B2A63', stroke: '#F2B705', 'stroke-width': '3', 'stroke-linejoin': 'round' }),
+    mk('path', { d: 'M19 17h26a5 5 0 0 1 5 5v14a5 5 0 0 1-5 5H33l-8 7v-7h-6a5 5 0 0 1-5-5V22a5 5 0 0 1 5-5z', fill: '#FFFFFF' }),
+    mk('rect', { x: '27', y: '27', width: '10', height: '8', rx: '1.5', fill: '#F2B705' }),
+    mk('path', { d: 'M29 27v-2.5a3 3 0 0 1 6 0V27', fill: 'none', stroke: '#F2B705', 'stroke-width': '2' }),
   )
+  return svg
+}
+/** Petites icônes de navigation (trait, couleur du texte). Construites nœud par nœud, sans innerHTML. */
+const ICON_PATHS: Record<string, string> = {
+  messages: 'M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1z',
+  groups: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3.300 2.700-5.500 6-5.500s6 2.200 6 5.500M17 11a2.500 2.500 0 1 0 0-5M17.500 14.600c2.200.4 3.500 2.300 3.500 5.400',
+  security: 'M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6zM9 12l2 2 4-4',
+  shield: 'M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z',
+}
+function icon(name: keyof typeof ICON_PATHS, size = 20): SVGElement {
+  const ns = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(ns, 'svg') as SVGElement
+  for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', width: String(size), height: String(size), fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) svg.setAttribute(k, v)
+  const path = document.createElementNS(ns, 'path')
+  path.setAttribute('d', ICON_PATHS[name]!)
+  svg.append(path)
   return svg
 }
 const formatSize = (n: number) => (n < 1024 ? `${n} o` : n < 1048576 ? `${(n / 1024).toFixed(1)} Ko` : `${(n / 1048576).toFixed(1)} Mo`)
@@ -95,14 +111,19 @@ function languageSelect(): HTMLElement {
 function renderLogin(root: HTMLElement): void {
   root.replaceChildren(
     h('main', { class: 'login' },
-      logo(56),
-      h('h1', {}, S.appTitle),
-      h('p', { class: 'tagline' }, S.tagline),
-      h('p', { class: 'subtitle' }, S.appSubtitle),
-      ...(new URL(window.location.href).searchParams.has('revoked') ? [h('p', { class: 'error', role: 'alert' }, S.revoked)] : []),
-      h('p', {}, S.loginIntro),
-      h('a', { class: 'button', href: ssoLoginUrl() }, S.login),
-      languageSelect(),
+      h('section', { class: 'login-hero' },
+        h('div', { class: 'hero-brand' }, logo(44), h('span', {}, S.appTitle)),
+        h('h2', {}, t('login.heroTitle')),
+        h('p', {}, S.tagline)),
+      h('section', { class: 'login-card' },
+        logo(64),
+        h('h1', {}, S.appTitle),
+        h('p', { class: 'subtitle' }, t('login.mark')),
+        ...(new URL(window.location.href).searchParams.has('revoked') ? [h('p', { class: 'error', role: 'alert' }, S.revoked)] : []),
+        h('p', { class: 'intro' }, S.loginIntro),
+        h('a', { class: 'button', href: ssoLoginUrl() }, `${S.login} →`),
+        languageSelect(),
+        h('p', { class: 'restricted' }, t('login.restricted'))),
     ),
   )
 }
@@ -154,28 +175,80 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
   let expiryTimer: ReturnType<typeof setTimeout> | undefined
   // Éléments persistants: les champs de saisie ne sont JAMAIS reconstruits, sinon un message en cours de frappe
   // disparaîtrait à chaque événement de synchronisation.
-  const lists = h('div')
+  type View = 'messages' | 'groups' | 'security'
+  let view: View = 'messages'
+  let tab: 'recent' | 'groups' = 'recent'
+  let query = ''
+  const meName = (client.getUserId() ?? '').replace(/^@/, '').split(':')[0] ?? ''
+  const lists = h('div', { class: 'room-lists' })
   const newRoomForm = drawNewRoomForm()
-  const sidebar = h('aside', { 'aria-label': S.rooms },
-    h('header', {},
-      h('div', { class: 'brand' }, logo(36), h('span', { class: 'brand-name' }, S.appTitle)),
-      h('p', { class: 'status-line' },
-        h('span', { class: 'line' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), S.serverStatus),
-        h('span', { class: 'line' }, S.encrypted)),
-      h('div', { class: 'me' },
-        avatar((client.getUserId() ?? '').replace(/^@/, '')),
-        h('span', { class: 'who', title: client.getUserId() ?? '' },
-          h('strong', { class: 'identity' }, (client.getUserId() ?? '').replace(/^@/, '').split(':')[0]),
-          h('span', { class: 'server' }, (client.getUserId() ?? '').split(':')[1] ?? ''))),
+  const search = h('input', { type: 'search', placeholder: t('search'), 'aria-label': t('search'), input: () => { query = search.value.trim().toLowerCase(); listsSignature = ''; refresh() } })
+  const tabButtons = (['recent', 'groups'] as const).map((k) => h('button', { type: 'button', role: 'tab', class: 'tab', 'data-tab': k, click: () => { tab = k; listsSignature = ''; refresh() } }, k === 'recent' ? t('tab.recent') : t('tab.groups')))
+  const navButtons = (['messages', 'groups', 'security'] as const).map((v) =>
+    h('button', { type: 'button', class: 'nav-item', 'data-view': v, click: () => setView(v) }, icon(v), h('span', {}, t(`nav.${v}`))))
+  const nav = h('nav', { class: 'nav', 'aria-label': t('nav.label') },
+    h('div', { class: 'brand' }, logo(40), h('span', { class: 'brand-name' }, S.appTitle)),
+    h('div', { class: 'nav-items' }, ...navButtons),
+    h('div', { class: 'me' },
+      avatar(meName),
+      h('span', { class: 'who', title: client.getUserId() ?? '' },
+        h('strong', { class: 'identity' }, meName),
+        h('span', { class: 'presence' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), t('online'))),
       languageSelect(),
-      h('button', { type: 'button', class: 'secondary', click: () => void logout(client).then(() => location.assign(IDENTITY_LOGOUT_URL)) }, S.logout)),
+      h('button', { type: 'button', class: 'ghost', click: () => void logout(client).then(() => location.assign(IDENTITY_LOGOUT_URL)) }, S.logout)),
+  )
+  const listCol = h('section', { class: 'listcol', 'aria-label': S.rooms },
+    h('div', { class: 'searchbox' }, search),
+    h('div', { class: 'tabs', role: 'tablist' }, ...tabButtons),
     newRoomForm,
     lists,
   )
+
+  // Panneau d'information du salon (colonne de droite). Le formulaire d'invitation est persistant: il n'est jamais reconstruit.
+  const infoHead = h('div', { class: 'info-head' })
+  const infoMembers = h('ul', { class: 'info-members' })
+  const inviteError = h('p', { class: 'error', role: 'alert' })
+  const inviteInput = h('input', { id: 'invite-user', placeholder: t('info.addPlaceholder') })
+  const inviteForm = h('form', { class: 'invite', submit: (e) => {
+    e.preventDefault()
+    const roomId = selected
+    if (!roomId) return
+    let mxid: string
+    try { mxid = toMxid(inviteInput.value) } catch (err) { inviteError.textContent = errorText(err); return }
+    client.invite(roomId, mxid)
+      .then(() => { inviteInput.value = ''; inviteError.textContent = '' })
+      .catch((err) => { inviteError.textContent = errorText(err) })
+  } },
+    h('label', { for: 'invite-user' }, t('info.addMember')),
+    h('div', { class: 'invite-row' }, inviteInput, h('button', { type: 'submit', 'aria-label': t('info.addMember') }, '+')),
+    inviteError)
+  let leaveArmed = false
+  const leaveButton = h('button', { type: 'button', class: 'danger-link', click: () => {
+    const roomId = selected
+    if (!roomId) return
+    if (!leaveArmed) {
+      leaveArmed = true
+      leaveButton.textContent = t('info.leaveConfirm')
+      setTimeout(() => { leaveArmed = false; leaveButton.textContent = t('info.leave') }, 4000)
+      return
+    }
+    leaveArmed = false
+    leaveButton.textContent = t('info.leave')
+    void client.leave(roomId).then(() => { selected = undefined; refresh() }).catch(() => undefined)
+  } }, t('info.leave'))
+  const infoCol = h('aside', { class: 'info hidden', 'aria-label': t('info.title') },
+    infoHead,
+    h('div', { class: 'info-level' }, h('span', { class: 'info-label' }, t('info.level')), h('span', { class: 'pill-ok' }, S.encrypted)),
+    h('h3', {}, t('info.members')),
+    infoMembers,
+    inviteForm,
+    leaveButton)
+
   const roomHeader = h('header')
   const timelineList = h('ol', { class: 'timeline' })
   const content = h('section', { class: 'content' }, h('p', { class: 'status' }, S.noRoom))
-  root.replaceChildren(h('div', { class: 'layout' }, sidebar, content))
+  const layout = h('div', { class: 'layout' }, nav, listCol, content, infoCol)
+  root.replaceChildren(layout)
 
   const composers = new Map<string, HTMLElement>() // un brouillon par salon
   let shownRoom: string | undefined
@@ -410,14 +483,28 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     level.classList.add('sr-only')
     const expiry = h('select', { id: `expiry-${roomId}`, 'aria-label': S.expiry }, ...S.expiryOptions.map((o) => h('option', { value: o.value }, o.label)))
     const expiryField = h('label', { class: 'field expiry', for: `expiry-${roomId}` }, S.expiry, expiry)
+    const cardText: Record<Level, string> = { normal: t('levelCardNormal'), restreinte: t('levelCardRestreinte'), confidentiel: t('levelCardConfidentiel') }
     const cards = LEVELS.map((l) => h('button', {
       type: 'button', role: 'radio', class: `level-card level-card-${l}`, 'data-level': l,
       click: () => { level.value = l; level.dispatchEvent(new Event('change')) },
-    }, h('strong', {}, S.levels[l])))
+    }, icon('shield', 22), h('strong', {}, S.levels[l]), h('span', { class: 'level-card-sub' }, cardText[l])))
+    // Règles imposées par le niveau: affichées, non modifiables (c'est le niveau qui décide, jamais l'expéditeur).
+    const ruleRow = (label: string) => {
+      const sw = h('span', { class: 'switch', 'aria-hidden': 'true' })
+      const state = h('span', { class: 'rule-state' }, sw, h('span', { class: 'rule-tag' }, t('rule.imposed')))
+      return { row: h('div', { class: 'rule' }, h('span', {}, label), state), set: (on: boolean) => { sw.classList.toggle('on', on); state.classList.toggle('inactive', !on) } }
+    }
+    const ruleForward = ruleRow(t('rule.noForward'))
+    const ruleBlur = ruleRow(t('rule.blur'))
     const levelNote = h('p', { class: 'level-note' }, S.levelNote)
+    const levelChip = h('span', { class: 'chip chip-normal' })
     const describe = () => {
       const chosen = level.value as Level
       hint.textContent = S.levelHelps[chosen]
+      levelChip.textContent = S.levels[chosen]
+      levelChip.className = `chip chip-${chosen}`
+      ruleForward.set(policyFor(chosen).noForward)
+      ruleBlur.set(chosen === 'confidentiel')
       levelNote.classList.toggle('hidden', chosen === 'normal') // la note ne concerne que les niveaux à règles
       for (const card of cards) card.setAttribute('aria-checked', String(card.dataset.level === chosen))
       expiryField.classList.toggle('hidden', chosen === 'normal')
@@ -482,14 +569,14 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     const form = h('form', { class: 'composer', submit: (e) => { e.preventDefault(); void send() } },
       h('label', { for: `message-${roomId}` }, S.messageLabel),
       h('div', { class: 'compose-row' }, input, h('button', { type: 'submit', class: 'send' }, S.send)),
-      h('div', { class: 'levels' },
-        h('span', { class: 'levels-title', id: `levels-${roomId}` }, S.level),
+      h('details', { class: 'levels' },
+        h('summary', {}, h('span', { class: 'levels-title', id: `levels-${roomId}` }, S.level), levelChip),
         h('div', { class: 'level-cards', role: 'radiogroup', 'aria-labelledby': `levels-${roomId}` }, ...cards),
         level,
-        expiryField,
+        h('div', { class: 'rules' }, ruleForward.row, ruleBlur.row, expiryField),
+        hint,
+        levelNote,
       ),
-      hint,
-      levelNote,
       h('div', { class: 'toolbar' },
         h('label', { class: 'check', for: `instruction-${roomId}` }, instruction, S.instructionLabel),
         h('label', { class: 'tool file', for: `file-${roomId}` }, S.attach, file),
@@ -502,7 +589,7 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     return form
   }
 
-  function drawNewRoomForm(): HTMLElement {
+  function drawNewRoomForm(): HTMLDetailsElement {
     const name = h('input', { id: 'room-name', required: true })
     const invitees = h('input', { id: 'room-invitees' })
     const error = h('p', { class: 'error', role: 'alert' })
@@ -523,27 +610,125 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     return box
   }
 
+  function setView(next: View) {
+    view = next
+    shownRoom = undefined
+    lastTimelineSignature = ''
+    listsSignature = ''
+    if (next === 'security') void showSecurity()
+    refresh()
+  }
+
+  /** Centre de sécurité: appareils réellement connectés au compte, second facteur, chiffrement, déconnexion de tous les appareils. */
+  async function showSecurity() {
+    content.replaceChildren(h('section', { class: 'panel security' }, h('h1', {}, t('sec.title'))))
+    let devices: Array<{ device_id: string; display_name?: string; last_seen_ts?: number }> = []
+    try { devices = (await client.getDevices()).devices } catch { /* liste indisponible: on affiche le reste */ }
+    if (view !== 'security') return
+    let armed = false
+    const logoutAll = h('button', { type: 'button', class: 'danger', click: () => {
+      if (!armed) {
+        armed = true
+        logoutAll.textContent = t('sec.logoutAllConfirm')
+        setTimeout(() => { armed = false; logoutAll.textContent = t('sec.logoutAll') }, 4000)
+        return
+      }
+      void client.http.authedRequest(Method.Post, '/logout/all', undefined, {})
+        .catch(() => undefined)
+        .finally(() => void logout(client).then(() => location.assign(IDENTITY_LOGOUT_URL)))
+    } }, t('sec.logoutAll'))
+    const deviceList = h('ul', { class: 'device-list' }, ...devices.map((d) =>
+      h('li', {}, h('strong', {}, d.display_name || t('sec.noName')),
+        h('span', { class: 'muted' }, `${d.device_id === client.getDeviceId() ? `${t('sec.thisDevice')} · ` : ''}${t('sec.lastSeen')} ${d.last_seen_ts ? formatDate(d.last_seen_ts) : '—'}`))))
+    content.replaceChildren(h('section', { class: 'panel security' },
+      h('h1', {}, t('sec.title')),
+      h('div', { class: 'cards' },
+        h('article', { class: 'card' }, h('h2', {}, `${t('sec.devices')} (${devices.length})`), deviceList, logoutAll),
+        h('article', { class: 'card' }, h('h2', {}, t('sec.twoFactor')), h('p', { class: 'pill-ok' }, `✓ ${t('rule.imposed')}`), h('p', {}, t('sec.twoFactorOn'))),
+        h('article', { class: 'card' }, h('h2', {}, t('sec.e2e')), h('p', {}, t('sec.e2eText'))))))
+  }
+
+  function drawGroups() {
+    const groups = client.getRooms().filter((r) => r.getMyMembership() === 'join')
+    content.replaceChildren(h('section', { class: 'panel' },
+      h('div', { class: 'panel-head' },
+        h('h1', {}, t('groups.title')),
+        h('button', { type: 'button', click: () => { setView('messages'); newRoomForm.open = true } }, t('groups.create'))),
+      groups.length
+        ? h('ul', { class: 'group-grid' }, ...groups.map((r) =>
+          h('li', {}, avatar(r.name),
+            h('div', { class: 'group-main' }, h('strong', {}, r.name), h('span', { class: 'muted' }, S.agentsCount(r.getJoinedMemberCount()))),
+            h('button', { type: 'button', class: 'secondary', click: () => { selected = r.roomId; setView('messages') } }, t('groups.open')))))
+        : h('p', { class: 'muted' }, t('groups.empty'))))
+  }
+
+  /** Dernier message visible d'un salon, pour la liste: aperçu masqué pour un message confidentiel, jamais de clair expiré. */
+  const lastPreview = (r: Room): { text: string; ts: number; level: Level; unread: number } => {
+    const unread = r.getUnreadNotificationCount()
+    const events = visibleEvents(r.getLiveTimeline().getEvents(), Date.now()).filter((e) => e.getType() === 'm.room.message' || e.getType() === 'm.room.encrypted')
+    const e = events[events.length - 1]
+    if (!e) return { text: t('previewEmpty'), ts: 0, level: 'normal', unread }
+    if (e.isDecryptionFailure()) return { text: S.undecryptable, ts: e.getTs(), level: 'normal', unread }
+    if (e.getType() === 'm.room.encrypted') return { text: S.decrypting, ts: e.getTs(), level: 'normal', unread }
+    const content = e.getContent()
+    const level = readClassification(content).level
+    let text = typeof content.body === 'string' ? content.body : ''
+    if (content.msgtype === 'm.file') text = t('previewFile')
+    else if (content.msgtype === 'm.audio') text = t('previewVoice')
+    else if (content[INSTRUCTION_KEY] === true) text = `${t('previewInstruction')} · ${text}`
+    if (level === 'confidentiel') text = t('previewHidden')
+    return { text: text.slice(0, 70), ts: e.getTs(), level, unread }
+  }
+  const rowTime = (ts: number) => {
+    if (!ts) return ''
+    const d = new Date(ts)
+    return d.toDateString() === new Date().toDateString()
+      ? new Intl.DateTimeFormat('fr', { hour: '2-digit', minute: '2-digit' }).format(d)
+      : new Intl.DateTimeFormat('fr', { day: '2-digit', month: '2-digit' }).format(d)
+  }
+
+  function updateInfo(room: Room) {
+    infoHead.replaceChildren(avatar(room.name), h('strong', {}, room.name), h('span', { class: 'muted' }, S.agentsCount(room.getJoinedMemberCount())))
+    infoMembers.replaceChildren(...room.getJoinedMembers().slice(0, 8).map((m) => h('li', {}, avatar(m.name, true), h('span', {}, m.name))))
+  }
+
   function draw() {
+    for (const b of navButtons) b.setAttribute('aria-current', String(b.dataset.view === view))
+    for (const b of tabButtons) b.setAttribute('aria-selected', String(b.dataset.tab === tab))
+    layout.classList.toggle('chat-open', view === 'messages' && selected !== undefined)
+    listCol.classList.toggle('hidden', view !== 'messages')
+    if (view === 'security') { infoCol.classList.add('hidden'); return }
+    if (view === 'groups') { infoCol.classList.add('hidden'); drawGroups(); return }
+
     const rooms = client.getRooms()
     const invites = rooms.filter((r) => r.getMyMembership() === 'invite')
     const joined = rooms.filter((r) => r.getMyMembership() === 'join')
+    const rows = joined
+      .filter((r) => (tab === 'groups' ? r.getJoinedMemberCount() >= 3 : true) && (query === '' || r.name.toLowerCase().includes(query)))
+      .map((r) => ({ r, p: lastPreview(r) }))
+      .sort((a, b) => b.p.ts - a.p.ts)
 
     // Les listes ne sont redessinées que si elles ont changé (le clavier garde le focus sur un bouton de la liste).
-    const signature = JSON.stringify([selected, invites.map((r) => [r.roomId, r.name]), joined.map((r) => [r.roomId, r.name])])
+    const signature = JSON.stringify([selected, tab, query, invites.map((r) => [r.roomId, r.name]), rows.map(({ r, p }) => [r.roomId, r.name, p.text, p.ts, p.unread, p.level])])
     if (signature !== listsSignature) {
       listsSignature = signature
       lists.replaceChildren(
-        ...(invites.length ? [h('h2', {}, S.invitations), h('ul', {}, ...invites.map((r) =>
-          h('li', {}, r.name, h('button', { type: 'button', click: () => void client.joinRoom(r.roomId).then(() => { selected = r.roomId; refresh() }) }, S.join))))] : []),
-        h('h2', {}, S.rooms),
-        h('ul', { class: 'rooms' }, ...joined.map((r) =>
-          h('li', {}, h('button', { type: 'button', class: r.roomId === selected ? 'room active' : 'room', 'aria-current': String(r.roomId === selected), click: () => { selected = r.roomId; refresh() } }, avatar(r.name, true), h('span', { class: 'room-name' }, r.name))))),
+        ...(invites.length ? [h('h2', {}, S.invitations), h('ul', { class: 'invites' }, ...invites.map((r) =>
+          h('li', {}, h('span', {}, r.name), h('button', { type: 'button', click: () => void client.joinRoom(r.roomId).then(() => { selected = r.roomId; refresh() }) }, S.join))))] : []),
+        h('ul', { class: 'rooms' }, ...rows.map(({ r, p }) =>
+          h('li', {}, h('button', { type: 'button', class: r.roomId === selected ? 'room active' : 'room', 'aria-current': String(r.roomId === selected), click: () => { selected = r.roomId; refresh() } },
+            avatar(r.name),
+            h('span', { class: 'row-main' },
+              h('span', { class: 'row-top' }, h('strong', { class: 'room-name' }, r.name), h('span', { class: 'row-time' }, rowTime(p.ts))),
+              h('span', { class: p.level === 'confidentiel' ? 'row-preview is-conf' : 'row-preview' }, p.text)),
+            p.unread > 0 ? h('span', { class: 'count' }, String(p.unread)) : '')))),
       )
     }
 
     const room = selected ? client.getRoom(selected) : null
+    infoCol.classList.toggle('hidden', !room)
     if (!room) {
-      if (shownRoom !== undefined) content.replaceChildren(h('p', { class: 'status' }, S.noRoom))
+      if (shownRoom !== undefined || content.querySelector('.panel')) content.replaceChildren(h('p', { class: 'status' }, S.noRoom))
       shownRoom = undefined
       return
     }
@@ -554,9 +739,11 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
       lastTimelineSignature = ''
     }
     roomHeader.replaceChildren(
+      h('button', { type: 'button', class: 'back', 'aria-label': t('back'), click: () => { selected = undefined; refresh() } }, '‹'),
       avatar(room.name),
       h('div', { class: 'room-title' }, h('h2', {}, room.name), h('span', { class: 'members' }, S.agentsCount(room.getJoinedMemberCount()))),
       h('span', { class: room.hasEncryptionStateEvent() ? 'badge ok' : 'badge warn' }, room.hasEncryptionStateEvent() ? S.encrypted : S.notEncrypted))
+    updateInfo(room)
     fillTimeline(room, switched)
   }
   draw()

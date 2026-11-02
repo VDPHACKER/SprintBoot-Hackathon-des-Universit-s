@@ -1,18 +1,15 @@
-/* Écran de connexion DÎYOY: mêmes couleurs que le client (Vert Faso, Vert nuit, Papier). */
-:root, .login-pf, body {
-  --diyoy-green: #0b6b45; --diyoy-night: #0f2a1f; --diyoy-paper: #f5f2ea; --diyoy-line: #ddd8cb;
-}
-:root { --pf-v5-global--primary-color--100: #0b6b45; --pf-v5-global--active-color--100: #0b6b45; --pf-v5-global--link--Color: #0b6b45; --pf-v5-global--BorderColor--100: #ddd8cb; }
-.pf-v5-c-login__main { border-top: 1px solid var(--diyoy-line) !important; }
-body, .pf-v5-c-login { background: var(--diyoy-paper) !important; color: var(--diyoy-night); font-family: "Inter Variable", Inter, "Segoe UI", system-ui, sans-serif; }
+/* Écran de connexion DÎYOY: couleurs de la maquette (bleu nuit, bleu vif, or). */
+:root { --pf-v5-global--primary-color--100: #0149e4; --pf-v5-global--active-color--100: #0149e4; --pf-v5-global--link--Color: #0149e4; --pf-v5-global--BorderColor--100: #dce5f4; }
+:root, .login-pf, body { --diyoy-navy: #021a41; --diyoy-blue: #0149e4; --diyoy-navy2: #0c2a5e; --diyoy-paper: #f4f8fe; --diyoy-line: #dce5f4; }
+body, .pf-v5-c-login { background: linear-gradient(160deg, var(--diyoy-navy) 0%, #16356f 100%) !important; color: var(--diyoy-navy); font-family: "Inter Variable", Inter, "Segoe UI", system-ui, sans-serif; }
 .pf-v5-c-login__container { max-width: 30rem; margin: 0 auto; }
-#kc-header-wrapper { color: var(--diyoy-night) !important; font-family: Sora, "Segoe UI", system-ui, sans-serif; font-weight: 700; font-size: 2.2rem; letter-spacing: -.01em; text-transform: none; text-align: left; padding-bottom: .5rem; }
-#kc-header-wrapper::before { content: ""; display: block; width: 56px; height: 56px; margin-bottom: .9rem; background: url("../img/logo.svg") no-repeat center / contain; }
-.pf-v5-c-login__main { background: #fff !important; border: 1px solid var(--diyoy-line); border-radius: 24px; box-shadow: 0 1px 2px rgba(15, 42, 31, .06); overflow: hidden; }
+#kc-header-wrapper { color: #fff !important; font-family: Sora, "Segoe UI", system-ui, sans-serif; font-weight: 700; font-size: 2.4rem; letter-spacing: -.01em; text-transform: none; text-align: left; padding-bottom: .5rem; }
+#kc-header-wrapper::before { content: ""; display: block; width: 64px; height: 64px; margin-bottom: .9rem; background: url("../img/logo.svg") no-repeat center / contain; }
+.pf-v5-c-login__main { background: #fff !important; border: 0; border-radius: 24px; box-shadow: 0 10px 34px rgba(0, 0, 0, .28); overflow: hidden; border-top: 0 !important; }
 .pf-v5-c-login__main::before, .pf-v5-c-login__main-header::before { display: none !important; }
-.pf-v5-c-login__main-header-desc, .pf-v5-c-login__main-header h1, #kc-page-title { color: var(--diyoy-night); font-family: Sora, "Segoe UI", system-ui, sans-serif; font-weight: 600; }
+.pf-v5-c-login__main-header-desc, .pf-v5-c-login__main-header h1, #kc-page-title { color: var(--diyoy-navy); font-family: Sora, "Segoe UI", system-ui, sans-serif; font-weight: 600; }
 .pf-v5-c-form-control, input[type="text"], input[type="password"] { border-radius: 12px !important; border-color: var(--diyoy-line) !important; }
-.pf-v5-c-button.pf-m-primary, #kc-login { background: var(--diyoy-green) !important; border-radius: 999px !important; font-weight: 600; }
-.pf-v5-c-button.pf-m-primary:hover, #kc-login:hover { filter: brightness(1.1); }
-a, .pf-v5-c-button.pf-m-link { color: var(--diyoy-green); }
-.pf-v5-c-login__footer, .pf-v5-c-login__main-footer-links { color: #53655b; }
+.pf-v5-c-button.pf-m-primary, #kc-login { background: var(--diyoy-navy2) !important; border-radius: 12px !important; font-weight: 600; }
+.pf-v5-c-button.pf-m-primary:hover, #kc-login:hover { background: var(--diyoy-blue) !important; }
+a, .pf-v5-c-button.pf-m-link { color: var(--diyoy-blue); }
+.pf-v5-c-login__footer, .pf-v5-c-login__main-footer-links { color: #5a6b8a; }

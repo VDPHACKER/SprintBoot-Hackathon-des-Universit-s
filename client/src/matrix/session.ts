@@ -37,7 +37,7 @@ async function completeSso(loginToken: string): Promise<StoredSession> {
   const url = new URL(window.location.href)
   url.searchParams.delete('loginToken')
   window.history.replaceState({}, '', url.pathname + url.search)
-  const res = await createClient({ baseUrl: baseUrl() }).loginRequest({ type: 'm.login.token', token: loginToken })
+  const res = await createClient({ baseUrl: baseUrl() }).loginRequest({ type: 'm.login.token', token: loginToken, initial_device_display_name: 'DÎYOY Web' })
   const session = { accessToken: res.access_token, userId: res.user_id, deviceId: res.device_id }
   store(session)
   return session
