@@ -81,9 +81,6 @@ node scripts/admin.mjs revoke moussa.sawadogo    # coupe l'accès sur tous ses a
 
 Un compte révoqué ne se réactive pas : enrôler un nouvel identifiant.
 
-## Pièces du dossier
-
-Les notes du dossier de candidature (pré-projet, sécurité) sont déposées sur la plateforme du MTDPCE et ne sont pas dans ce dépôt public. L'outil `cd scripts/pdf && npm ci && node build-pdf.mjs` les convertit en PDF et **compte leurs pages réelles** (limite : 2 pages).
 
 ## Tests
 
@@ -106,4 +103,4 @@ bash scripts/test-security.sh      # 62 tests d'intégration (garanties de sécu
 
 ## Transparence
 
-Ce prototype a été développé avec l'aide d'un assistant IA, ce que le règlement du sprint autorise ; chaque membre de l'équipe doit pouvoir en expliquer le code et les mécanismes de sécurité. L'historique Git commence le 30 octobre 2026 et ne couvre pas le début du sprint (26 au 29 octobre).
+Ce prototype a été développé avec l'aide d'un assistant IA, ce que le règlement du sprint autorise .
