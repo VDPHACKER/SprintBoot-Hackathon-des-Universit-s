@@ -71,7 +71,7 @@ publics), servir le client et Keycloak en **HTTPS** (le chiffrement du navigateu
 
 ## Administration : enrôler et révoquer
 
-```ash
+```bash
 node scripts/admin.mjs list
 node scripts/admin.mjs enroll nouvel.agent "Nom Prénom" "Ministère" "Fonction" agent
 node scripts/admin.mjs revoke moussa.sawadogo    # coupe l'accès sur tous ses appareils, tout de suite
@@ -95,13 +95,13 @@ bash scripts/test-security.sh      # 62 tests d'intégration (garanties de sécu
 - Le **nom des salons, les membres et les droits** sont visibles du serveur (non chiffrés par Matrix), ainsi que « qui parle
   dans quel salon, quand, et la taille ». Détail et mesures dans la note de sécurité (pièce 3 du dossier de candidature).
 - Le flou des messages confidentiels **dissuade**, il ne bloque pas les captures d'écran (impossible sur le web).
-- Le rôle chef_de_service n'est pas appliqué : seule l'API d'administration exige un rôle (dmin) ; émettre une instruction de service exige d'être modérateur du salon.
+- Le rôle chef_de_service n'est pas appliqué : seule l'API d'administration exige un rôle (admin) ; émettre une instruction de service exige d'être modérateur du salon.
 - Pas d'écran de vérification des appareils ; le jeton et les clés restent dans le navigateur, non chiffrés au repos.
 - Heures de lecture et d'expiration : horloge de chaque appareil.
 - L'**installation** télécharge des images Docker et des paquets (construction du client) : le fonctionnement n'en dépend pas, mais un déploiement isolé doit prévoir un miroir interne.
-- La configuration livrée est celle d'une machine locale (localhost, uth.localhost) : un autre nom d'hôte demande de modifier SERVER_NAME, l'adresse publique, les redirections Keycloak et l'émetteur dans deploy/.
+- La configuration livrée est celle d'une machine locale (localhost, auth.localhost) : un autre nom d'hôte demande de modifier SERVER_NAME, l'adresse publique, les redirections Keycloak et l'émetteur dans deploy/.
 - Mooré partiel, dioula absent ; annuaire disponible côté serveur mais pas dans l'interface ; ni mode dégradé, ni archivage légal.
 
 ## Transparence
 
-Ce prototype a été développé avec l'aide d'un assistant IA, ce que le règlement du sprint autorise ; les commits en portent la mention. L'historique Git commence le 30 octobre 2026.
+Ce prototype a été développé avec l'aide d'un assistant IA, ce que le règlement du sprint autorise ; chaque membre de l'équipe doit pouvoir en expliquer le code et les mécanismes de sécurité. L'historique Git commence le 30 octobre 2026 et ne couvre pas le début du sprint (26 au 29 octobre).
