@@ -16,45 +16,59 @@ const USAGE = `Usage:
   node scripts/admin.mjs enroll <identifiant> "<Nom affiché>" "<Ministère>" "<Fonction>" <agent|chef_de_service|admin>
   node scripts/admin.mjs revoke <identifiant>`
 
+/**
+ * Arrêt sur erreur: on lève une erreur dédiée, affichée une seule fois en bas du fichier, puis on laisse Node se terminer
+ * de lui-même avec le code 1. Un `process.exit()` pendant qu'une connexion HTTP se ferme encore provoque, sous Windows, une
+ * assertion de Node (« UV_HANDLE_CLOSING ») affichée après le vrai message.
+ */
+class Stop extends Error {}
 const fail = (message) => {
-  console.error(message)
-  process.exit(1)
+  throw new Stop(message)
 }
 
-const [command, ...args] = process.argv.slice(2)
-const needs = { list: 0, enroll: 5, revoke: 1 }
-if (!(command in needs) || args.length !== needs[command]) fail(USAGE)
+async function main() {
+  const [command, ...args] = process.argv.slice(2)
+  const needs = { list: 0, enroll: 5, revoke: 1 }
+  if (!(command in needs) || args.length !== needs[command]) fail(USAGE)
 
-let secret
-try {
-  secret = readFileSync(resolve(import.meta.dirname, '../data/secrets/automation_secret'), 'utf8').trim()
-} catch {
-  fail('Secret introuvable (data/secrets/automation_secret): la pile a-t-elle été démarrée depuis ce dossier ?')
+  let secret
+  try {
+    secret = readFileSync(resolve(import.meta.dirname, '../data/secrets/automation_secret'), 'utf8').trim()
+  } catch {
+    fail('Secret introuvable (data/secrets/automation_secret): la pile a-t-elle été démarrée depuis ce dossier ?')
+  }
+
+  const tokenResponse = await fetch(`${KEYCLOAK}/realms/bf/protocol/openid-connect/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'client_credentials', client_id: 'automation', client_secret: secret }),
+  }).catch((e) => fail(`Keycloak injoignable (${KEYCLOAK}): ${e.message}`))
+  if (!tokenResponse.ok) fail(`Authentification refusée (${tokenResponse.status})`)
+  const headers = { authorization: `Bearer ${(await tokenResponse.json()).access_token}`, 'content-type': 'application/json' }
+
+  async function call(method, path, body) {
+    const res = await fetch(`${CHAT}/admin-api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }).catch((e) =>
+      fail(`Service d'administration injoignable (${CHAT}): ${e.message}`),
+    )
+    const text = await res.text()
+    if (!res.ok) fail(`Refusé (${res.status}): ${text}`)
+    return text ? JSON.parse(text) : {}
+  }
+
+  if (command === 'list') {
+    console.log(JSON.stringify(await call('GET', '/agents'), null, 2))
+  } else if (command === 'enroll') {
+    const [username, displayName, ministry, fonction, role] = args
+    const { initialPassword, ...agent } = await call('POST', '/agents', { username, displayName, ministry, fonction, role })
+    console.log(JSON.stringify(agent, null, 2))
+    console.log(`\nMot de passe temporaire (affiché UNE SEULE FOIS, à changer à la première connexion): ${initialPassword}`)
+    console.log('Le second facteur (TOTP) sera à enregistrer à la première connexion.')
+  } else {
+    console.log(JSON.stringify(await call('POST', `/agents/${encodeURIComponent(args[0])}/revoke`), null, 2))
+  }
 }
 
-const tokenResponse = await fetch(`${KEYCLOAK}/realms/bf/protocol/openid-connect/token`, {
-  method: 'POST',
-  headers: { 'content-type': 'application/x-www-form-urlencoded' },
-  body: new URLSearchParams({ grant_type: 'client_credentials', client_id: 'automation', client_secret: secret }),
-}).catch((e) => fail(`Keycloak injoignable (${KEYCLOAK}): ${e.message}`))
-if (!tokenResponse.ok) fail(`Authentification refusée (${tokenResponse.status})`)
-const headers = { authorization: `Bearer ${(await tokenResponse.json()).access_token}`, 'content-type': 'application/json' }
-
-async function call(method, path, body) {
-  const res = await fetch(`${CHAT}/admin-api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
-  const text = await res.text()
-  if (!res.ok) fail(`Refusé (${res.status}): ${text}`)
-  return text ? JSON.parse(text) : {}
-}
-
-if (command === 'list') {
-  console.log(JSON.stringify(await call('GET', '/agents'), null, 2))
-} else if (command === 'enroll') {
-  const [username, displayName, ministry, fonction, role] = args
-  const { initialPassword, ...agent } = await call('POST', '/agents', { username, displayName, ministry, fonction, role })
-  console.log(JSON.stringify(agent, null, 2))
-  console.log(`\nMot de passe temporaire (affiché UNE SEULE FOIS, à changer à la première connexion): ${initialPassword}`)
-  console.log('Le second facteur (TOTP) sera à enregistrer à la première connexion.')
-} else {
-  console.log(JSON.stringify(await call('POST', `/agents/${encodeURIComponent(args[0])}/revoke`), null, 2))
-}
+main().catch((e) => {
+  console.error(e instanceof Stop ? e.message : e)
+  process.exitCode = 1
+})
