@@ -73,41 +73,31 @@ publics), servir le client et Keycloak en **HTTPS** (le chiffrement du navigateu
 
 ## Administration : enrôler et révoquer
 
-**Console d'administration** (application distincte de la messagerie) : <http://localhost:8002>. Connexion Keycloak avec un compte au rôle
-`admin` (démonstration : `admin.demo`, mot de passe puis code à usage unique). Elle liste les agents, enrôle un agent (mot de passe
-temporaire affiché une seule fois) et révoque un accès en deux clics (coupe la connexion, ferme les sessions, désactive le compte de
-messagerie). L'onglet « Rôles et accès » change le rôle d'un agent actif (agent, chef de service, administrateur) et ferme ses sessions pour que le nouveau rôle s'applique tout de suite ; le dernier administrateur actif ne peut pas être rétrogradé. Seul le rôle `admin` a aujourd'hui un effet (accès à la console) ; `chef_de_service` n'est pas encore appliqué dans la messagerie. L'onglet « Journal d'audit » liste chaque enrôlement, changement de rôle et révocation (qui, quoi, quand) ; les entrées sont chaînées par SHA-256 (fichier `audit.jsonl` du volume `auditdata`) et la console signale toute entrée modifiée ou supprimée. Le journal n'enregistre que ce qui passe par l'API d'administration, il disparaît avec `docker compose down -v`, et un échec d'écriture ne bloque jamais une révocation. Un compte qui n'a pas le rôle `admin` est refusé par l'API (403). Trois autres onglets : « Salons et canaux » (salons vus par le serveur : nom, créateur, membres, chiffrement, jamais le contenu), « Serveur » (état de Synapse et de Keycloak, chiffres clés, salons non chiffrés, intégrité du journal) et « Archivage légal ». Cet archivage exporte uniquement les **métadonnées** (agents, salons et membres, journal d'audit) dans un fichier JSON avec une empreinte SHA-256, et chaque export est inscrit au journal. Le contenu des échanges n'est pas dans cette archive : il est chiffré de bout en bout et le serveur ne peut pas le lire. L'archivage du **contenu** se fait côté destinataire : dans la messagerie, le bouton « Archiver ce salon » du panneau d'informations exporte, depuis l'appareil de l'agent, les messages qu'il a déjà déchiffrés (expéditeur, heure, texte, instructions de service avec la liste de ceux qui les ont lues) dans un fichier JSON scellé par une empreinte SHA-256 ; « Paramètres → Vérifier une archive » détecte toute modification ultérieure. Les messages Confidentiel, expirés, supprimés ou illisibles n'y figurent jamais, les fichiers et messages vocaux sont listés par leur nom sans contenu, et l'empreinte ne prouve ni l'auteur ni la date (pas de signature ni de tiers de confiance). La console ne distingue pas encore les canaux de diffusion des autres salons et ne gère pas les appareils des agents.
-
-Le même service est aussi disponible en ligne de commande :
-
-```bash
-node scripts/admin.mjs list
-node scripts/admin.mjs enroll nouvel.agent "Nom Prénom" "Ministère" "Fonction" agent
-node scripts/admin.mjs revoke moussa.sawadogo    # coupe l'accès sur tous ses appareils, tout de suite
-```
-
-Un compte révoqué ne se réactive pas : enrôler un nouvel identifiant.
-
+**Console d'administration** (application distincte, <http://localhost:8002>, compte au rôle `admin`, ex. `admin.demo`) : agents,
+enrôlement (mot de passe temporaire affiché une seule fois), révocation en deux clics, rôles, salons vus par le serveur (jamais leur
+contenu), état du serveur, **journal d'audit** chaîné par SHA-256 (toute modification est détectée) et export des **métadonnées**.
+L'**archivage du contenu** se fait côté destinataire : « Archiver ce salon » exporte les messages déjà déchiffrés, scellés par une
+empreinte vérifiable dans les Paramètres ; les messages Confidentiel n'y figurent jamais. Même service en ligne de commande :
+`node scripts/admin.mjs list | enroll <id> "<Nom>" "<Ministère>" "<Fonction>" <rôle> | revoke <id>`. Un compte révoqué ne se
+réactive pas : enrôler un nouvel identifiant.
 
 ## Tests
 
-```bash
-docker compose -f compose.yaml -f compose.test.yaml up -d --wait
-bash scripts/test-security.sh      # plus de 200 tests : une centaine d'intégration sur la pile réelle (garanties de sécurité, fonctions, console d'administration) et une centaine d'unitaires
-```
+`docker compose -f compose.yaml -f compose.test.yaml up -d --wait` puis `bash scripts/test-security.sh` : plus de 200 tests (garanties de
+sécurité sur la pile réelle, fonctions, console d'administration, unitaires).
 
 ## Limites
 
-- Le **nom des salons, les membres et les droits** sont visibles du serveur (non chiffrés par Matrix), ainsi que « qui parle
-  dans quel salon, quand, et la taille ». Détail et mesures dans la note de sécurité (pièce 3 du dossier de candidature).
+- Le **nom des salons, les membres et les droits** sont visibles du serveur (non chiffrés par Matrix), ainsi que « qui parle dans quel
+  salon, quand, et la taille » : détail et mesures dans la note de sécurité (pièce 3).
 - Le flou des messages confidentiels **dissuade**, il ne bloque pas les captures d'écran (impossible sur le web).
-- Le rôle chef_de_service n'est pas appliqué : seule l'API d'administration exige un rôle (admin) ; émettre une instruction de service exige d'être modérateur du salon.
-- Pas d'écran de vérification des appareils ; le jeton et les clés restent dans le navigateur, non chiffrés au repos.
-- Heures de lecture et d'expiration : horloge de chaque appareil.
-- L'**installation** télécharge des images Docker et des paquets (construction du client) : le fonctionnement n'en dépend pas, mais un déploiement isolé doit prévoir un miroir interne.
-- La configuration livrée est celle d'une machine locale (localhost, auth.localhost) : un autre nom d'hôte demande de modifier SERVER_NAME, l'adresse publique, les redirections Keycloak et l'émetteur dans deploy/.
-- Mooré partiel, dioula absent ; annuaire disponible côté serveur mais pas dans l'interface ; pas de mode dégradé ; l'archivage du contenu est une copie faite par chaque destinataire (sans signature), le serveur n'archive que des métadonnées).
+- Le rôle `chef_de_service` n'est pas appliqué (seul `admin` l'est) ; émettre une instruction exige d'être modérateur du salon.
+- Pas de vérification des appareils ni de sauvegarde de clés ; jeton et clés non chiffrés au repos dans le navigateur.
+- Journal et archives sans signature : ils détectent une modification, ils ne prouvent ni l'auteur ni la date. Heures : horloge de chaque appareil.
+- L'**installation** télécharge des images Docker et des paquets (un déploiement isolé prévoit un miroir interne) ; la configuration livrée
+  est locale (`localhost`) : un autre nom d'hôte demande de modifier `deploy/`.
+- Mooré partiel (6 libellés sur environ 60), dioula absent ; pas de mode dégradé ni d'effacement à distance.
 
 ## Transparence
 
-Ce prototype a été développé avec l'aide d'un assistant IA, ce que le règlement du sprint autorise .
+Ce prototype a été développé avec l'aide d'un assistant IA, ce que le règlement du sprint autorise.
