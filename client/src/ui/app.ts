@@ -6,6 +6,7 @@ import { buildProof, type ProofReport } from '../lib/proof.ts'
 import { LOCALES, getLocale, persistLocale, t, type Locale } from '../i18n/index.ts'
 import { sendVoice, startRecording } from '../lib/voice.ts'
 import { downloadFile, sendFile } from '../matrix/files.ts'
+import { buildRoomArchive, verifyRoomArchive, type ArchivableEvent, type ArchiveCheck } from '../lib/archive.ts'
 import { createEncryptedRoom, sendText, toMxid } from '../matrix/rooms.ts'
 import { identityLogoutUrl } from '../matrix/config.ts'
 import { logout, ssoLoginUrl, startSession } from '../matrix/session.ts'
@@ -241,12 +242,38 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
     leaveButton.textContent = t('info.leave')
     void client.leave(roomId).then(() => { selected = undefined; refresh() }).catch(() => undefined)
   } }, t('info.leave'))
+  // Archivage légal côté destinataire: le serveur ne lit rien, c'est cet appareil qui copie ce qu'il a déjà déchiffré.
+  const archiveStatus = h('p', { class: 'muted', role: 'status' })
+  const archiveButton = h('button', { type: 'button', class: 'secondary', click: () => { if (selected) void archiveRoom(selected) } }, t('info.archive'))
+  async function archiveRoom(roomId: string) {
+    const room = client.getRoom(roomId)
+    if (!room) return
+    archiveStatus.textContent = ''
+    const events: ArchivableEvent[] = room.getLiveTimeline().getEvents().map((e) => ({
+      eventId: e.getId() ?? '', sender: e.getSender() ?? '', ts: e.getTs(), type: e.getType(),
+      status: e.isRedacted() ? 'redacted' : e.isDecryptionFailure() ? 'undecryptable' : 'ok',
+      content: e.getContent() as Record<string, unknown>,
+      deviceId: String(e.getWireContent().device_id ?? ''), senderKey: e.getSenderKey() ?? undefined,
+    }))
+    const archive = await buildRoomArchive({
+      roomId, roomName: room.name, archivedBy: client.getUserId() ?? '', events,
+      members: room.getJoinedMembers().map((m) => ({ userId: m.userId, name: m.name })),
+      isInstructionAuthority: (user) => isInstructionAuthority(room.getMember(user)?.powerLevel),
+    })
+    const slug = room.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'salon'
+    saveBlob(new Blob([JSON.stringify(archive, null, 2)], { type: 'application/json' }), `diyoy-echanges-${slug}-${new Date().toISOString().slice(0, 10)}.json`)
+    const skipped = Object.values(archive.excluded).reduce((a, b) => a + b, 0)
+    archiveStatus.textContent = t('info.archiveDone', { n: String(archive.entries.length), x: String(skipped), digest: archive.digest.slice(0, 16) })
+  }
   const infoCol = h('aside', { class: 'info hidden', 'aria-label': t('info.title') },
     infoHead,
     h('div', { class: 'info-level' }, h('span', { class: 'info-label' }, t('info.level')), h('span', { class: 'pill-ok' }, S.encrypted)),
     h('h3', {}, t('info.members')),
     infoMembers,
     inviteForm,
+    archiveButton,
+    h('p', { class: 'muted small' }, t('info.archiveHelp')),
+    archiveStatus,
     leaveButton)
 
   const roomHeader = h('header')
@@ -710,11 +737,21 @@ function renderMain(root: HTMLElement, client: MatrixClient): void {
 
   function showSettings() {
     const id = client.getUserId() ?? ''
+    const verifyResult = h('p', { role: 'status' })
+    const verifyInput = h('input', { type: 'file', accept: 'application/json,.json', 'aria-label': t('settings.verifyArchive'), change: () => {
+      const file = verifyInput.files?.[0]
+      if (!file) return
+      void file.text()
+        .then((text) => verifyRoomArchive(JSON.parse(text) as unknown))
+        .catch((): ArchiveCheck => 'invalid')
+        .then((result) => { verifyResult.textContent = t(`settings.verify.${result}`); verifyResult.className = result === 'intact' ? 'pill-ok' : 'error' })
+    } })
     content.replaceChildren(h('section', { class: 'panel' }, h('h1', {}, t('settings.title')),
       h('div', { class: 'cards' },
         h('article', { class: 'card' }, h('h2', {}, t('settings.account')), h('p', {}, id), h('p', { class: 'muted' }, `${t('settings.server')} : ${id.split(':')[1] ?? ''}`)),
         h('article', { class: 'card' }, h('h2', {}, t('settings.device')), h('p', {}, 'DÎYOY Web'), h('p', { class: 'muted' }, client.getDeviceId() ?? '')),
-        h('article', { class: 'card' }, h('h2', {}, S.language), languageSelect()))))
+        h('article', { class: 'card' }, h('h2', {}, S.language), languageSelect()),
+        h('article', { class: 'card' }, h('h2', {}, t('settings.archives')), h('p', { class: 'muted' }, t('settings.archivesHelp')), verifyInput, verifyResult))))
   }
 
   /** Centre de sécurité: appareils réellement connectés au compte, second facteur, chiffrement, déconnexion de tous les appareils. */

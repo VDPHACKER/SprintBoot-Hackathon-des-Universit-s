@@ -142,5 +142,14 @@
   "errors.FILE_TOO_LARGE": "Le fichier dépasse la taille autorisée.",
   "errors.DOWNLOAD_FAILED": "Le téléchargement a échoué ou le fichier a été altéré.",
   "errors.MIC_DENIED": "Le microphone n’est pas accessible. Autorisez-le dans le navigateur.",
-  "errors.generic": "Une erreur est survenue. Réessayez."
+  "errors.generic": "Une erreur est survenue. Réessayez.",
+  "info.archive": "Archiver ce salon (JSON)",
+  "info.archiveDone": "Archive enregistrée : {n} messages, {x} non archivés (confidentiels, expirés, supprimés ou illisibles). Empreinte {digest}…",
+  "info.archiveHelp": "Copie datée et scellée des messages lisibles sur cet appareil. Les messages Confidentiel n’y figurent jamais.",
+  "settings.archives": "Archives",
+  "settings.archivesHelp": "Vérifiez qu’une archive exportée n’a pas été modifiée depuis son export.",
+  "settings.verifyArchive": "Vérifier une archive",
+  "settings.verify.intact": "✓ Archive intacte : l’empreinte correspond.",
+  "settings.verify.modified": "✗ Archive MODIFIÉE : l’empreinte ne correspond pas.",
+  "settings.verify.invalid": "Ce fichier n’est pas une archive DÎYOY."
 }

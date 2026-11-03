@@ -4,6 +4,15 @@ import type { Role } from './agents.ts'
 
 export interface TokenClaims {
   roles: string[]
+  /** Identifiant de l'appelant (preferred_username), pour le journal d'audit. */
+  username?: string
+}
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    /** Renseigné par la garde d'administration une fois le jeton vérifié. */
+    actor?: string
+  }
 }
 /** Vérifie un jeton et renvoie ses rôles; lève une erreur si le jeton est invalide. */
 export type TokenVerifier = (token: string) => Promise<TokenClaims>
@@ -21,6 +30,7 @@ export function roleGuard(verify: TokenVerifier, role: Role): Guard {
       return reply.code(401).send({ error: 'UNAUTHENTICATED' })
     }
     if (!claims.roles.includes(role)) return reply.code(403).send({ error: 'FORBIDDEN' })
+    req.actor = claims.username ?? 'inconnu'
   }
 }
 
@@ -34,6 +44,7 @@ export function joseVerifier(
     // Algorithme imposé (celui de Keycloak): on ne laisse pas le jeton choisir comment il est vérifié.
     const { payload } = await jwtVerify(token, jwks, { issuer, algorithms: ['RS256'] })
     const realmAccess = payload.realm_access as { roles?: string[] } | undefined
-    return { roles: realmAccess?.roles ?? [] }
+    const username = typeof payload.preferred_username === 'string' ? payload.preferred_username : undefined
+    return { roles: realmAccess?.roles ?? [], username }
   }
 }

@@ -257,3 +257,5 @@ audio { max-width: 100%; }
   button, .toolbar .tool, .level-card { min-height: 48px; }
   .level-cards { grid-template-columns: 1fr; }
 }
+
+.small { font-size: .82rem; margin: .2rem 0 .6rem; }

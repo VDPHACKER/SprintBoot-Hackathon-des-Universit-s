@@ -1,4 +1,4 @@
-import type { Agent, AgentInput, IdentityProvider, SynapseAdmin } from '../src/agents.ts'
+import type { Agent, AgentInput, IdentityProvider, RoomInfo, SynapseAdmin } from '../src/agents.ts'
 
 /** Identité en mémoire; `log` enregistre l'ordre des appels. */
 export class FakeIdentity implements IdentityProvider {
@@ -17,12 +17,28 @@ export class FakeIdentity implements IdentityProvider {
     const u = this.users.get(username)
     if (u) u.status = 'revoked'
   }
+  async setUserRole(username: string, role: Agent['role']): Promise<void> {
+    this.log.push(`identity.setUserRole:${username}:${role}`)
+    const u = this.users.get(username)
+    if (u) u.role = role
+  }
   async listUsers(): Promise<Agent[]> {
     return [...this.users.values()]
   }
 }
 
 export class FakeSynapse implements SynapseAdmin {
+  rooms: RoomInfo[] = []
+  members = new Map<string, string[]>()
+  async listRooms(): Promise<RoomInfo[]> {
+    return this.rooms
+  }
+  async roomMembers(roomId: string): Promise<string[]> {
+    return this.members.get(roomId) ?? []
+  }
+  async version(): Promise<string> {
+    return '1.0.0-test'
+  }
   log: string[]
   constructor(log: string[]) {
     this.log = log

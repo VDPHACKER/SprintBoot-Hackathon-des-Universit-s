@@ -128,6 +128,22 @@
       "optionalClientScopes": []
     },
     {
+      "clientId": "admin-console",
+      "name": "Console d'administration DÎYOY",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:8002/*"],
+      "webOrigins": ["http://localhost:8002"],
+      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "http://localhost:8002/*" },
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic"],
+      "optionalClientScopes": []
+    },
+    {
       "clientId": "automation",
       "name": "Compte technique: administration (service d'administration, seed, tests)",
       "enabled": true,

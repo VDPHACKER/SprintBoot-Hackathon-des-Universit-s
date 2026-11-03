@@ -41,4 +41,22 @@ describe('SÉCURITÉ: API d\'administration derrière Caddy', () => {
     const again = await fetch(`${BASE}/admin-api/agents/${username}/revoke`, { method: 'POST', headers: adminHeaders })
     expect(again.status).toBe(200)
   })
+
+  it('changeRoleKeepsTheRestOfTheProfileAndRejectsBadRequests', async () => {
+    const username = `e2e-${randomBytes(4).toString('hex')}`
+    await fetch(`${BASE}/admin-api/agents`, {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({ username, displayName: 'Agent Rôle', ministry: 'Ministère fictif A', fonction: 'Testeur', role: 'agent' }),
+    })
+    const post = (u: string, role: string) =>
+      fetch(`${BASE}/admin-api/agents/${u}/role`, { method: 'POST', headers: adminHeaders, body: JSON.stringify({ role }) })
+    expect((await post(username, 'chef_de_service')).status).toBe(200)
+    const list = (await (await fetch(`${BASE}/admin-api/agents`, { headers: adminHeaders })).json()) as Array<Record<string, string>>
+    expect(list.find((a) => a.username === username)).toMatchObject({ role: 'chef_de_service', displayName: 'Agent Rôle', ministry: 'Ministère fictif A', fonction: 'Testeur', status: 'active' })
+    expect((await post('personne.inconnue', 'agent')).status).toBe(404)
+    expect((await post(username, 'ministre')).status).toBe(400)
+    await fetch(`${BASE}/admin-api/agents/${username}/revoke`, { method: 'POST', headers: adminHeaders })
+    expect((await post(username, 'agent')).status).toBe(409)
+  })
 })

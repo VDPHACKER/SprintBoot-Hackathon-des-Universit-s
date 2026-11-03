@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { enroll, revoke, type AgentInput } from '../src/agents.ts'
+import { changeRole, enroll, revoke, type AgentInput } from '../src/agents.ts'
 import { roleGuard, type TokenVerifier } from '../src/auth.ts'
 import { buildServer } from '../src/server.ts'
 import { FakeIdentity, FakeSynapse } from './fakes.ts'
@@ -45,13 +45,13 @@ describe('enroll', () => {
     const log: string[] = []
     let synapseUp = false
     const identity = new FakeIdentity(log)
-    const synapse = {
+    const synapse = Object.assign(new FakeSynapse(log), {
       upsertUser: async (mxid: string) => {
         if (!synapseUp) throw new Error('Synapse indisponible')
         log.push(`synapse.upsertUser:${mxid}`)
       },
       deactivate: async () => undefined,
-    }
+    })
     const d = { identity, synapse, domain: 'chat.localhost' }
     await expect(enroll(d, awa)).rejects.toThrow('Synapse indisponible')
     synapseUp = true
@@ -193,5 +193,71 @@ describe('endpoints', () => {
     expect(res.json()).toEqual([
       { username: 'awa.ouedraogo', displayName: 'Awa Ouédraogo', ministry: 'Ministère fictif A', fonction: 'Chargée de mission' },
     ])
+  })
+})
+
+describe('changeRole', () => {
+  const admin: AgentInput = { ...awa, username: 'admin.un', displayName: 'Admin Un', role: 'admin' }
+
+  it('changesTheRoleOfAnActiveAgentThroughTheIdentity', async () => {
+    const d = makeDeps()
+    await enroll(d, awa)
+    const agent = await changeRole(d, 'awa.ouedraogo', 'chef_de_service')
+    expect(agent.role).toBe('chef_de_service')
+    expect(d.log).toContain('identity.setUserRole:awa.ouedraogo:chef_de_service')
+    expect((await d.identity.listUsers())[0]?.role).toBe('chef_de_service')
+  })
+
+  it('doesNothingWhenTheRoleIsUnchanged', async () => {
+    const d = makeDeps()
+    await enroll(d, awa)
+    d.log.length = 0
+    await changeRole(d, 'awa.ouedraogo', 'agent')
+    expect(d.log).toEqual([])
+  })
+
+  it('rejectsUnknownRoleUnknownAgentAndBadUsername', async () => {
+    const d = makeDeps()
+    await enroll(d, awa)
+    await expect(changeRole(d, 'awa.ouedraogo', 'ministre' as never)).rejects.toThrow('INVALID_ROLE')
+    await expect(changeRole(d, 'personne.inconnu', 'agent')).rejects.toThrow('UNKNOWN_AGENT')
+    await expect(changeRole(d, 'Awa Ouedraogo', 'agent')).rejects.toThrow('INVALID_USERNAME')
+  })
+
+  it('refusesARevokedAccount', async () => {
+    const d = makeDeps()
+    await enroll(d, awa)
+    await revoke(d, 'awa.ouedraogo')
+    await expect(changeRole(d, 'awa.ouedraogo', 'admin')).rejects.toThrow('REVOKED_ACCOUNT')
+  })
+
+  it('refusesToDemoteTheLastActiveAdministrator', async () => {
+    const d = makeDeps()
+    await enroll(d, admin)
+    await expect(changeRole(d, 'admin.un', 'agent')).rejects.toThrow('LAST_ADMIN')
+    await enroll(d, { ...admin, username: 'admin.deux', displayName: 'Admin Deux' })
+    await expect(changeRole(d, 'admin.un', 'agent')).resolves.toMatchObject({ role: 'agent' })
+    await expect(changeRole(d, 'admin.deux', 'agent')).rejects.toThrow('LAST_ADMIN')
+  })
+
+  it('aRevokedAdministratorDoesNotCountAsActive', async () => {
+    const d = makeDeps()
+    await enroll(d, admin)
+    await enroll(d, { ...admin, username: 'admin.deux', displayName: 'Admin Deux' })
+    await revoke(d, 'admin.deux')
+    await expect(changeRole(d, 'admin.un', 'agent')).rejects.toThrow('LAST_ADMIN')
+  })
+
+  it('endpointMapsErrorsToStatusCodes', async () => {
+    const d = makeDeps()
+    await enroll(d, admin)
+    const verify: TokenVerifier = async () => ({ roles: ['admin'] })
+    const s = buildServer({ ...d, adminGuard: roleGuard(verify, 'admin') })
+    const post = (u: string, role: string) =>
+      s.inject({ method: 'POST', url: `/agents/${u}/role`, headers: { authorization: 'Bearer x' }, payload: { role } })
+    expect((await post('admin.un', 'agent')).statusCode).toBe(409)
+    expect((await post('inconnu.agent', 'agent')).statusCode).toBe(404)
+    expect((await post('admin.un', 'ministre')).statusCode).toBe(400)
+    expect((await post('admin.un', 'admin')).statusCode).toBe(200)
   })
 })

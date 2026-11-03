@@ -73,6 +73,13 @@ publics), servir le client et Keycloak en **HTTPS** (le chiffrement du navigateu
 
 ## Administration : enrôler et révoquer
 
+**Console d'administration** (application distincte de la messagerie) : <http://localhost:8002>. Connexion Keycloak avec un compte au rôle
+`admin` (démonstration : `admin.demo`, mot de passe puis code à usage unique). Elle liste les agents, enrôle un agent (mot de passe
+temporaire affiché une seule fois) et révoque un accès en deux clics (coupe la connexion, ferme les sessions, désactive le compte de
+messagerie). L'onglet « Rôles et accès » change le rôle d'un agent actif (agent, chef de service, administrateur) et ferme ses sessions pour que le nouveau rôle s'applique tout de suite ; le dernier administrateur actif ne peut pas être rétrogradé. Seul le rôle `admin` a aujourd'hui un effet (accès à la console) ; `chef_de_service` n'est pas encore appliqué dans la messagerie. L'onglet « Journal d'audit » liste chaque enrôlement, changement de rôle et révocation (qui, quoi, quand) ; les entrées sont chaînées par SHA-256 (fichier `audit.jsonl` du volume `auditdata`) et la console signale toute entrée modifiée ou supprimée. Le journal n'enregistre que ce qui passe par l'API d'administration, il disparaît avec `docker compose down -v`, et un échec d'écriture ne bloque jamais une révocation. Un compte qui n'a pas le rôle `admin` est refusé par l'API (403). Trois autres onglets : « Salons et canaux » (salons vus par le serveur : nom, créateur, membres, chiffrement, jamais le contenu), « Serveur » (état de Synapse et de Keycloak, chiffres clés, salons non chiffrés, intégrité du journal) et « Archivage légal ». Cet archivage exporte uniquement les **métadonnées** (agents, salons et membres, journal d'audit) dans un fichier JSON avec une empreinte SHA-256, et chaque export est inscrit au journal. Le contenu des échanges n'est pas dans cette archive : il est chiffré de bout en bout et le serveur ne peut pas le lire. L'archivage du **contenu** se fait côté destinataire : dans la messagerie, le bouton « Archiver ce salon » du panneau d'informations exporte, depuis l'appareil de l'agent, les messages qu'il a déjà déchiffrés (expéditeur, heure, texte, instructions de service avec la liste de ceux qui les ont lues) dans un fichier JSON scellé par une empreinte SHA-256 ; « Paramètres → Vérifier une archive » détecte toute modification ultérieure. Les messages Confidentiel, expirés, supprimés ou illisibles n'y figurent jamais, les fichiers et messages vocaux sont listés par leur nom sans contenu, et l'empreinte ne prouve ni l'auteur ni la date (pas de signature ni de tiers de confiance). La console ne distingue pas encore les canaux de diffusion des autres salons et ne gère pas les appareils des agents.
+
+Le même service est aussi disponible en ligne de commande :
+
 ```bash
 node scripts/admin.mjs list
 node scripts/admin.mjs enroll nouvel.agent "Nom Prénom" "Ministère" "Fonction" agent
@@ -99,7 +106,7 @@ bash scripts/test-security.sh      # 62 tests d'intégration (garanties de sécu
 - Heures de lecture et d'expiration : horloge de chaque appareil.
 - L'**installation** télécharge des images Docker et des paquets (construction du client) : le fonctionnement n'en dépend pas, mais un déploiement isolé doit prévoir un miroir interne.
 - La configuration livrée est celle d'une machine locale (localhost, auth.localhost) : un autre nom d'hôte demande de modifier SERVER_NAME, l'adresse publique, les redirections Keycloak et l'émetteur dans deploy/.
-- Mooré partiel, dioula absent ; annuaire disponible côté serveur mais pas dans l'interface ; ni mode dégradé, ni archivage légal.
+- Mooré partiel, dioula absent ; annuaire disponible côté serveur mais pas dans l'interface ; pas de mode dégradé ; l'archivage du contenu est une copie faite par chaque destinataire (sans signature), le serveur n'archive que des métadonnées).
 
 ## Transparence
 

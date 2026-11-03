@@ -1,4 +1,4 @@
-import { ROLES, type Agent, type AgentInput, type IdentityProvider, type Role } from './agents.ts'
+import { AgentError, ROLES, type Agent, type AgentInput, type IdentityProvider, type Role } from './agents.ts'
 
 export interface KeycloakOptions {
   /** URL interne de Keycloak (réseau Docker), pas l'URL publique. */
@@ -108,6 +108,17 @@ export class KeycloakIdentity implements IdentityProvider {
     const id = await this.findId(username)
     if (!id) return // jamais enrôlé: rien à désactiver, la révocation reste idempotente
     await this.ok(await this.admin('PUT', `/users/${id}`, { enabled: false }), 'désactivation')
+    await this.ok(await this.admin('POST', `/users/${id}/logout`), 'fermeture des sessions')
+  }
+
+  async setUserRole(username: string, role: Role): Promise<void> {
+    const id = await this.findId(username)
+    if (!id) throw new AgentError('UNKNOWN_AGENT')
+    // La mise à jour d'attributs remplace TOUS les attributs: on relit puis on réécrit en ne changeant que le rôle.
+    const current = (await (await this.ok(await this.admin('GET', `/users/${id}`), 'lecture')).json()) as KcUser
+    await this.ok(await this.admin('PUT', `/users/${id}`, { attributes: { ...current.attributes, role: [role] } }), 'mise à jour du rôle')
+    await this.setRole(id, role)
+    // Sessions fermées: l'agent se reconnecte et reçoit un jeton portant son nouveau rôle (un administrateur rétrogradé perd l'accès tout de suite).
     await this.ok(await this.admin('POST', `/users/${id}/logout`), 'fermeture des sessions')
   }
 

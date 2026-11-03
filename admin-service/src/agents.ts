@@ -22,11 +22,28 @@ export interface RevocationReport {
 export interface IdentityProvider {
   createUser(a: AgentInput): Promise<void>
   disableUser(username: string): Promise<void>
+  /** Change le rôle d'un agent existant et ferme ses sessions (le nouveau rôle s'applique tout de suite). */
+  setUserRole(username: string, role: Role): Promise<void>
   listUsers(): Promise<Agent[]>
+}
+/** Métadonnées d'un salon vues par le serveur (jamais son contenu: il est chiffré de bout en bout). */
+export interface RoomInfo {
+  roomId: string
+  name: string
+  creator: string
+  members: number
+  /** Algorithme de chiffrement du salon, ou null s'il n'est pas chiffré. */
+  encryption: string | null
+  historyVisibility?: string
+  joinRules?: string
 }
 export interface SynapseAdmin {
   upsertUser(mxid: string, displayName: string): Promise<void>
   deactivate(mxid: string): Promise<void>
+  listRooms(): Promise<RoomInfo[]>
+  /** Identifiants Matrix des membres actuels d'un salon. */
+  roomMembers(roomId: string): Promise<string[]>
+  version(): Promise<string>
 }
 export interface Deps {
   identity: IdentityProvider
@@ -78,6 +95,25 @@ export async function enroll(deps: Deps, input: AgentInput): Promise<Agent> {
   await deps.synapse.upsertUser(mxid(deps.domain, input.username), input.displayName)
   const { initialPassword: _omit, ...agent } = input
   return { ...agent, status: 'active' }
+}
+
+/**
+ * Change le rôle d'un agent. Refusé pour un compte révoqué, un agent inconnu, ou si cela retirerait le dernier
+ * administrateur actif (plus personne ne pourrait ensuite administrer la messagerie).
+ */
+export async function changeRole(deps: Deps, username: string, role: Role): Promise<Agent & { previousRole: Role }> {
+  assertUsername(username)
+  if (!ROLES.includes(role)) throw new AgentError('INVALID_ROLE')
+  const users = await deps.identity.listUsers()
+  const target = users.find((u) => u.username === username)
+  if (!target) throw new AgentError('UNKNOWN_AGENT')
+  if (target.status === 'revoked') throw new AgentError('REVOKED_ACCOUNT')
+  if (target.role === 'admin' && role !== 'admin' && users.filter((u) => u.role === 'admin' && u.status === 'active').length <= 1) {
+    throw new AgentError('LAST_ADMIN')
+  }
+  const previousRole = target.role // lu AVANT le changement (certaines implémentations modifient l'objet en place)
+  if (previousRole !== role) await deps.identity.setUserRole(username, role)
+  return { ...target, role, previousRole }
 }
 
 /**

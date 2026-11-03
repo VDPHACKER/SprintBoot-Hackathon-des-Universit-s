@@ -3,11 +3,10 @@
 	admin off
 }
 
-# Messagerie: API Matrix, API d'administration de la messagerie.
-:8080, :8000, :8001 {
-	# Les ports 8000 et 8001 servent la même application sur deux origines distinctes (une session par origine):
-	# deux agents côte à côte sur le même poste, pour une démonstration. Jamais exposés : API d'administration de Synapse et fédération.
-	@blocked path /_synapse/admin/* /_matrix/federation/* /_matrix/key/*
+# Éléments communs aux portails de messagerie: API Matrix et client web. La console d'administration (admin.html) n'y est jamais servie.
+(messagerie) {
+	# Jamais exposés : API d'administration de Synapse, fédération, page de la console d'administration.
+	@blocked path /_synapse/admin/* /_matrix/federation/* /_matrix/key/* /admin.html
 	handle @blocked {
 		respond "Not found" 404
 	}
@@ -15,10 +14,6 @@
 	@matrix path /_matrix/* /_synapse/client/*
 	handle @matrix {
 		reverse_proxy synapse:8008
-	}
-
-	handle_path /admin-api/* {
-		reverse_proxy admin:3000
 	}
 
 	# Client web (application monopage). Politique CSP stricte: la session vit dans le navigateur,
@@ -38,9 +33,53 @@
 	}
 }
 
+# Messagerie (8080): garde l'API d'administration pour l'outil en ligne de commande (scripts/admin.mjs) et les tests.
+:8080 {
+	handle_path /admin-api/* {
+		reverse_proxy admin:3000
+	}
+	import messagerie
+}
+
+# Deux portails de démonstration (une session par origine): même application, SANS accès à l'API d'administration.
+:8000, :8001 {
+	@adminapi path /admin-api/*
+	handle @adminapi {
+		respond "Not found" 404
+	}
+	import messagerie
+}
+
+# Console d'administration: application distincte de la messagerie (propre origine, propre connexion Keycloak).
+:8002 {
+	handle_path /admin-api/* {
+		reverse_proxy admin:3000
+	}
+	handle {
+		header {
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' http://auth.localhost:8081; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+			X-Content-Type-Options nosniff
+			Referrer-Policy no-referrer
+			X-Frame-Options DENY
+			Cache-Control "no-cache"
+		}
+		root * /srv/client
+		# Seules la page d'accueil, /assets et l'icône existent: tout autre chemin répond 404 (pas de repli vers la page).
+		@page path /
+		rewrite @page /admin.html
+		@allowed path /admin.html /assets/* /favicon.svg
+		handle @allowed {
+			file_server
+		}
+		handle {
+			respond "Not found" 404
+		}
+	}
+}
+
 # Identité (Keycloak). La console d'administration et l'API d'administration ne sont pas exposées.
 :8081 {
-	@private path /admin/* /realms/master/* /metrics* /health*
+	@private path /admin/* /realms/master /realms/master/* /metrics* /health*
 	handle @private {
 		respond "Not found" 404
 	}

@@ -127,8 +127,10 @@ services:
       KEYCLOAK_ISSUER: http://auth.localhost:8081/realms/bf
       DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
       SECRETS_DIR: /secrets
+      AUDIT_DIR: /audit
     volumes:
       - ./data/secrets:/secrets:ro
+      - auditdata:/audit
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 5s
@@ -148,6 +150,7 @@ services:
       - "${CHAT_PORT:-8080}:8080"
       - "8000:8000" # démonstration à deux portails: même application, origine distincte
       - "8001:8001"
+      - "8002:8002" # console d'administration (application distincte)
       - "8081:8081"
     networks:
       default:
@@ -158,3 +161,4 @@ services:
 
 volumes:
   pgdata:
+  auditdata:

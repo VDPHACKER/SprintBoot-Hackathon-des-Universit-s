@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { FileAuditLog } from './audit.ts'
 import { joseVerifier, roleGuard } from './auth.ts'
 import { seedDemoAccounts } from './demo.ts'
 import { KeycloakIdentity } from './keycloak.ts'
@@ -32,6 +33,7 @@ let ready = !seedDemo
 const server = buildServer({
   ...deps,
   adminGuard: roleGuard(joseVerifier(`${keycloakUrl}/realms/${realm}/protocol/openid-connect/certs`, issuer), 'admin'),
+  audit: new FileAuditLog(process.env.AUDIT_DIR ?? '/audit'),
   isReady: () => ready,
 })
 
