@@ -96,7 +96,7 @@ sécurité sur la pile réelle, fonctions, console d'administration, unitaires).
 - Journal et archives sans signature : ils détectent une modification, ils ne prouvent ni l'auteur ni la date. Heures : horloge de chaque appareil.
 - L'**installation** télécharge des images Docker et des paquets (un déploiement isolé prévoit un miroir interne) ; la configuration livrée
   est locale (`localhost`) : un autre nom d'hôte demande de modifier `deploy/`.
-- Mooré partiel (6 libellés sur environ 60), dioula absent ; pas de mode dégradé ni d'effacement à distance.
+- Mooré très partiel (6 libellés sur plus de 150, tous attestés dans un dictionnaire), dioula absent ; pas de mode dégradé ni d'effacement à distance.
 
 ## Transparence
 
