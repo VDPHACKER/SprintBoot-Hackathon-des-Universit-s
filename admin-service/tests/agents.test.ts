@@ -261,3 +261,52 @@ describe('changeRole', () => {
     expect((await post('admin.un', 'admin')).statusCode).toBe(200)
   })
 })
+
+
+describe('revoke: le dernier administrateur', () => {
+  const admin: AgentInput = { ...awa, username: 'admin.un', displayName: 'Admin Un', role: 'admin' }
+
+  it('refusesToRevokeTheLastActiveAdministratorAndChangesNothing', async () => {
+    const d = makeDeps()
+    await enroll(d, admin)
+    d.log.length = 0
+    await expect(revoke(d, 'admin.un')).rejects.toThrow('LAST_ADMIN')
+    expect(d.log).toEqual([]) // ni Keycloak ni Synapse n'ont été touchés
+    expect((await d.identity.listUsers())[0]?.status).toBe('active')
+  })
+
+  it('allowsItWhenAnotherAdministratorIsActive', async () => {
+    const d = makeDeps()
+    await enroll(d, admin)
+    await enroll(d, { ...admin, username: 'admin.deux', displayName: 'Admin Deux' })
+    await expect(revoke(d, 'admin.un')).resolves.toMatchObject({ identityDisabled: true })
+    await expect(revoke(d, 'admin.deux')).rejects.toThrow('LAST_ADMIN') // il est maintenant le dernier
+  })
+
+  it('doesNotCountARevokedAdministratorAsAnotherOne', async () => {
+    const d = makeDeps()
+    await enroll(d, admin)
+    await enroll(d, { ...admin, username: 'admin.deux', displayName: 'Admin Deux' })
+    await revoke(d, 'admin.deux')
+    await expect(revoke(d, 'admin.un')).rejects.toThrow('LAST_ADMIN')
+  })
+
+  it('keepsRevokingOrdinaryAgentsUnknownAccountsAndAlreadyRevokedOnesWithoutError', async () => {
+    const d = makeDeps()
+    await enroll(d, admin)
+    await enroll(d, awa)
+    await expect(revoke(d, 'awa.ouedraogo')).resolves.toMatchObject({ synapseDeactivated: true })
+    await expect(revoke(d, 'awa.ouedraogo')).resolves.toMatchObject({ synapseDeactivated: true }) // déjà révoqué: idempotent
+    await expect(revoke(d, 'personne.inconnu')).resolves.toBeDefined()
+  })
+
+  it('endpointAnswers409AndRecordsNothingInTheJournal', async () => {
+    const d = makeDeps()
+    await enroll(d, admin)
+    const verify: TokenVerifier = async () => ({ roles: ['admin'], username: 'admin.un' })
+    const s = buildServer({ ...d, adminGuard: roleGuard(verify, 'admin') })
+    const res = await s.inject({ method: 'POST', url: '/agents/admin.un/revoke', headers: { authorization: 'Bearer x' } })
+    expect(res.statusCode).toBe(409)
+    expect(res.json()).toEqual({ error: 'LAST_ADMIN' })
+  })
+})

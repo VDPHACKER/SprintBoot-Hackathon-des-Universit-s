@@ -123,6 +123,13 @@ export async function changeRole(deps: Deps, username: string, role: Role): Prom
  */
 export async function revoke(deps: Deps, username: string): Promise<RevocationReport> {
   assertUsername(username)
+  // Refus de révoquer le dernier administrateur actif: plus personne ne pourrait ensuite enrôler, révoquer ni changer un rôle.
+  // Un compte déjà révoqué ou inconnu n'est pas concerné: la révocation reste idempotente.
+  const users = await deps.identity.listUsers()
+  const target = users.find((u) => u.username === username)
+  if (target?.role === 'admin' && target.status === 'active' && users.filter((u) => u.role === 'admin' && u.status === 'active').length <= 1) {
+    throw new AgentError('LAST_ADMIN')
+  }
   await deps.identity.disableUser(username)
   await deps.synapse.deactivate(mxid(deps.domain, username))
   return { username, identityDisabled: true, synapseDeactivated: true }
