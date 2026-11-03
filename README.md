@@ -48,7 +48,7 @@ contribution à un projet amont.
 Prérequis : Docker avec Compose v2, environ 4 Go de mémoire libre, un navigateur récent.
 
 ```bash
-docker compose up -d --wait        # 4 à 6 minutes la première fois (images et construction du client)
+docker compose up -d --wait        # 4 à 6 minutes la première fois sur un poste récent (images et construction du client), jusqu'à ~15 min sur un poste modeste
 ```
 
 Si le projet a déjà été installé dans un autre dossier, lancer d'abord `docker compose down -v` dans l'ancien : le volume de la base y garde les anciens mots de passe.
@@ -93,7 +93,7 @@ Un compte révoqué ne se réactive pas : enrôler un nouvel identifiant.
 
 ```bash
 docker compose -f compose.yaml -f compose.test.yaml up -d --wait
-bash scripts/test-security.sh      # 62 tests d'intégration (garanties de sécurité et fonctions), 110 tests unitaires en plus
+bash scripts/test-security.sh      # plus de 200 tests : une centaine d'intégration sur la pile réelle (garanties de sécurité, fonctions, console d'administration) et une centaine d'unitaires
 ```
 
 ## Limites

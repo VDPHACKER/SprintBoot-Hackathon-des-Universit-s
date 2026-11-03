@@ -75,7 +75,7 @@ services:
           exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /realms/bf/.well-known/openid-configuration HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && head -n 1 <&3 | grep -q ' 200 '
       interval: 10s
       timeout: 5s
-      retries: 40
+      retries: 100 # premier démarrage lent (poste modeste, disque lent): jusqu'à ~17 min avant de conclure à un échec
       start_period: 60s
 
   synapse:
@@ -96,7 +96,7 @@ services:
       test: ["CMD-SHELL", "curl -fSs http://localhost:8008/health || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 60
+      retries: 120
       start_period: 30s
 
   # Crée le compte de service @svc-admin et enregistre son jeton (utilisé par le service d'administration).
